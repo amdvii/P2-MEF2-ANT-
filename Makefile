@@ -1,16 +1,30 @@
+
 PROG = projet
 
-#sources
+# Sources
 SRC = main.c fonction.c
 
-#règle par défaut
+OBJ = $(SRC:.c=.o)
+
+#Compilateur
+CC = gcc
+
+#Compilation
+CFLAGS = -Wall -g
+
 all: $(PROG)
-	./$(PROG)
 
-#compilation du programme
-$(PROG): $(SRC) fichier.h
-	gcc -Wall -o $(PROG) $(SRC)
+$(PROG): $(OBJ)
+	$(CC) -o $(PROG) $(OBJ) -lm
 
-#Nettoyage
+
+%.o: %.c fichier.h
+	$(CC) $(CFLAGS) -c $< -o $@
+
+# Nettoyage
 clean:
-	rm -f $(PROG)
+	rm -f *.o $(PROG)
+
+# Règle lancement programme
+run: $(PROG)
+	./$(PROG)
