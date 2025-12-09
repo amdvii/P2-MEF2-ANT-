@@ -28,4 +28,3 @@ clean:
 # Règle lancement programme
 run: $(PROG)
 	./$(PROG)
-

@@ -165,58 +165,64 @@ void traiter_fichier(const char* nom_fichier, AVL** arbre, int* h) {
     char ligne[MAX_LINE_SIZE];
 
     while (fgets(ligne, sizeof(ligne), file)) {
-        char* col1 = strtok(ligne, ";");
-        (void)col1; // <--- AJOUT : On dit au compilateur d'ignorer cette variable
+        // On découpe la ligne
+        char* col1 = strtok(ligne, ";"); // ID Usine (pour info, ou vide)
+        (void)col1; // On ne s'en sert pas pour l'identification du type de ligne
 
-        char* col2 = strtok(NULL, ";");
-        char* col3 = strtok(NULL, ";");
-        char* col4 = strtok(NULL, ";");
-        char* col5 = strtok(NULL, ";");
+        char* col2 = strtok(NULL, ";"); // Identifiant Amont (ou ID Usine si def)
+        char* col3 = strtok(NULL, ";"); // Identifiant Aval (ou "-" si def)
+        char* col4 = strtok(NULL, ";"); // Volume/Capacité (ou "-" si aval)
+        char* col5 = strtok(NULL, ";"); // Rendement
 
+        // Sécurité si ligne incomplète
         if (!col2 || !col3 || !col4) continue;
 
-        // Cas 1 : Définition d'une usine
-        if (strstr(col2, "Plant") != NULL || strstr(col2, "Facility") != NULL) {
-             if (strcmp(col3, "-") == 0) {
-                 AVL* noeud = rechercherAVL(*arbre, col2);
-                 if (noeud == NULL) {
-                     Usine_donnees* u = malloc(sizeof(Usine_donnees));
-                     strcpy(u->id_usine, col2);
-                     u->capacite_max = atof(col4);
-                     u->volume_source = 0;
-                     u->volume_traite = 0;
-                     *arbre = insertionAVL(*arbre, u, h);
-                 } else {
-                     noeud->element->capacite_max = atof(col4);
-                 }
+        // --- CAS 1 : Définition d'une usine (Capacité Max) ---
+        // Le PDF dit : Col 3 est "-" ET Col 4 contient la capacité (donc pas "-")
+        if (strcmp(col3, "-") == 0 && strcmp(col4, "-") != 0) {
+             // Ici, col2 est l'identifiant de l'usine
+             AVL* noeud = rechercherAVL(*arbre, col2);
+             if (noeud == NULL) {
+                 // Nouvelle usine trouvée
+                 Usine_donnees* u = malloc(sizeof(Usine_donnees));
+                 strcpy(u->id_usine, col2);
+                 u->capacite_max = atof(col4);
+                 u->volume_source = 0;
+                 u->volume_traite = 0;
+                 *arbre = insertionAVL(*arbre, u, h);
+             } else {
+                 // Usine déjà connue (via une source), on met à jour sa capacité
+                 noeud->element->capacite_max = atof(col4);
              }
         }
 
-        // Cas 2 : Apport Source -> Usine
-        if ((strstr(col3, "Plant") != NULL || strstr(col3, "Facility") != NULL) && strcmp(col2, "-") != 0) {
-            char* id_usine = col3;
+        // --- CAS 2 : Liaison Source -> Usine (Volume capté) ---
+        // Le PDF dit : Col 3 est l'usine, Col 4 est le volume (donc pas "-")
+        // Note : Les lignes vers Stockage/Jonction ont "-" en Col 4, donc elles sont exclues ici.
+        else if (strcmp(col3, "-") != 0 && strcmp(col4, "-") != 0) {
+            // Ici, col3 est l'identifiant de l'usine (destination de la source)
+            char* id_usine = col3; 
             double volume = atof(col4);
-            
-            // Correction du warning "rendement"
-            double rendement = (col5 && strcmp(col5, "-") != 0) ? atof(col5) : 0.0;
-            (void)rendement; // <--- AJOUT : On ignore le rendement pour l'instant (option 'src')
+            (void)col5; // Pour éviter le warning
 
             AVL* noeud = rechercherAVL(*arbre, id_usine);
             if (noeud == NULL) {
+                // On découvre l'usine via la source
                 Usine_donnees* u = malloc(sizeof(Usine_donnees));
                 strcpy(u->id_usine, id_usine);
-                u->capacite_max = 0;
+                u->capacite_max = 0; // On ne la connait pas encore
                 u->volume_source = volume;
-                u->volume_traite = 0; 
+                u->volume_traite = 0;
                 *arbre = insertionAVL(*arbre, u, h);
             } else {
+                // On ajoute le volume à l'usine existante
                 noeud->element->volume_source += volume;
             }
         }
     }
     fclose(file);
 }
-// Parcours infixe pour écrire dans le fichier de sortie
+
 void ecrire_resultats(AVL* a, FILE* flux, const char* mode) {
     if (a != NULL) {
         ecrire_resultats(a->fg, flux, mode);
