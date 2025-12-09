@@ -3,12 +3,13 @@
 #include <string.h>
 
 #define MAX_ID_TAILLE 50
+#define MAX_LINE_SIZE 1024
 
 typedef struct {
     char id_usine[MAX_ID_TAILLE];
     double capacite_max;
-    double volume_total;
-    double volume_traiter;
+    double volume_source;
+    double volume_traite;
 } Usine_donnees;
 
 typedef struct avl {
@@ -28,9 +29,12 @@ AVL* rotationDroite(AVL* a);
 AVL* rotationGauche(AVL* a);
 AVL* doubleRotationGauche(AVL* a);
 AVL* doubleRotationDroite(AVL* a);
-
 AVL* equilibrerAVL(AVL* a);
 AVL* insertionAVL(AVL* a, Usine_donnees* e, int* h);
+AVL* rechercherAVL(AVL* a, char* id);
 
 void libererAVL(AVL* a);
 void affichageInfixe(AVL* a);
+
+void traiter_fichier(const char* nom_fichier, AVL** arbre, int* h);
+void ecrire_resultats(AVL* a, FILE* flux, const char* mode);
