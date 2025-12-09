@@ -1,3 +1,6 @@
+#ifndef FICHIER_H  
+#define FICHIER_H
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -38,3 +41,5 @@ void affichageInfixe(AVL* a);
 
 void traiter_fichier(const char* nom_fichier, AVL** arbre, int* h);
 void ecrire_resultats(AVL* a, FILE* flux, const char* mode);
+
+#endif

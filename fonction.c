@@ -140,10 +140,6 @@ void affichageInfixe(AVL* a) {
     }
 }
 
-#include "fichier.h"
-
-// ... (Gardez vos fonctions max, min, AVL, etc. au début du fichier) ...
-
 // Fonction de recherche (à ajouter avant traiter_fichier)
 AVL* rechercherAVL(AVL* a, char* id) {
     if (a == NULL) {
@@ -169,19 +165,17 @@ void traiter_fichier(const char* nom_fichier, AVL** arbre, int* h) {
     char ligne[MAX_LINE_SIZE];
 
     while (fgets(ligne, sizeof(ligne), file)) {
-        // strtok modifie la chaîne, on récupère les colonnes une par une
         char* col1 = strtok(ligne, ";");
-        (void)col1; // CORRECTION : On ignore col1 pour l'instant pour éviter le warning
+        (void)col1; // <--- AJOUT : On dit au compilateur d'ignorer cette variable
 
         char* col2 = strtok(NULL, ";");
         char* col3 = strtok(NULL, ";");
         char* col4 = strtok(NULL, ";");
         char* col5 = strtok(NULL, ";");
 
-        // On vérifie qu'on a bien les colonnes minimales pour travailler
         if (!col2 || !col3 || !col4) continue;
 
-        // Cas 1 : Définition d'une usine (Capacité)
+        // Cas 1 : Définition d'une usine
         if (strstr(col2, "Plant") != NULL || strstr(col2, "Facility") != NULL) {
              if (strcmp(col3, "-") == 0) {
                  AVL* noeud = rechercherAVL(*arbre, col2);
@@ -203,9 +197,9 @@ void traiter_fichier(const char* nom_fichier, AVL** arbre, int* h) {
             char* id_usine = col3;
             double volume = atof(col4);
             
-            // CORRECTION : On déclare rendement, mais on le caste en (void) pour éviter le warning
+            // Correction du warning "rendement"
             double rendement = (col5 && strcmp(col5, "-") != 0) ? atof(col5) : 0.0;
-            (void)rendement; // On s'en servira plus tard pour l'option "real"
+            (void)rendement; // <--- AJOUT : On ignore le rendement pour l'instant (option 'src')
 
             AVL* noeud = rechercherAVL(*arbre, id_usine);
             if (noeud == NULL) {
@@ -213,7 +207,7 @@ void traiter_fichier(const char* nom_fichier, AVL** arbre, int* h) {
                 strcpy(u->id_usine, id_usine);
                 u->capacite_max = 0;
                 u->volume_source = volume;
-                u->volume_traite = 0;
+                u->volume_traite = 0; 
                 *arbre = insertionAVL(*arbre, u, h);
             } else {
                 noeud->element->volume_source += volume;
@@ -222,7 +216,6 @@ void traiter_fichier(const char* nom_fichier, AVL** arbre, int* h) {
     }
     fclose(file);
 }
-
 // Parcours infixe pour écrire dans le fichier de sortie
 void ecrire_resultats(AVL* a, FILE* flux, const char* mode) {
     if (a != NULL) {
