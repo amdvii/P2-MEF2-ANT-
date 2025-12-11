@@ -1,114 +1,114 @@
 #!/bin/bash
 
-# Fonction d'aide
+# Aide
 if [ "$1" = "-h" ]; then
-    echo "Usage: $0 [fichier_dat] [type_station] [type_conso] [id_station]"
-    echo "  type_station : hvb, hva, lv"
-    echo "  type_conso   : comp, indiv, all"
-    echo "  id_station   : Optionnel (pour le mode leaks)"
+    echo "Usage: $0 [fichier.csv] [commande] [option]"
+    echo "Commandes:"
+    echo "  histo : Génère les graphiques des usines"
+    echo "  leaks : (Non implémenté) Analyse des fuites"
     exit 0
 fi
 
-# Verification du nombre d'arguments
-if [ $# -lt 3 ]; then
-    echo "Erreur: arguments manquants. Utilisez -h pour l'aide."
+# Verification arguments
+if [ $# -lt 2 ]; then
+    echo "Erreur: arguments manquants."
     exit 1
 fi
 
-FICHIER=$1
-STATION=$2
-CONSO=$3
-ID=$4
+INPUT_FILE=$1
+CMD=$2
 
-# Verification de l'existence du fichier
-if [ ! -f "$FICHIER" ]; then
-    echo "Erreur: le fichier $FICHIER n'existe pas."
+# Verification existence fichier
+if [ ! -f "$INPUT_FILE" ]; then
+    echo "Erreur: Fichier $INPUT_FILE introuvable."
     exit 1
 fi
 
-# Verification des types de stations
-if [ "$STATION" != "hvb" ] && [ "$STATION" != "hva" ] && [ "$STATION" != "lv" ]; then
-    echo "Erreur: type de station invalide ($STATION)."
-    exit 1
-fi
-
-# Verification des types de consommateurs
-if [ "$CONSO" != "comp" ] && [ "$CONSO" != "indiv" ] && [ "$CONSO" != "all" ]; then
-    echo "Erreur: type de consommateur invalide ($CONSO)."
-    exit 1
-fi
-
-# Verification des combinaisons interdites
-if [ "$STATION" = "hvb" ] || [ "$STATION" = "hva" ]; then
-    if [ "$CONSO" = "all" ] || [ "$CONSO" = "indiv" ]; then
-        echo "Erreur: combinaison station/consommateur interdite."
+# Compilation
+if [ ! -f "projet" ]; then
+    echo "Compilation en cours..."
+    make
+    if [ $? -ne 0 ]; then
+        echo "Erreur de compilation."
         exit 1
     fi
 fi
 
-# Creation des dossiers temporaires et graphiques
-if [ ! -d "tmp" ]; then
-    mkdir tmp
-fi
-if [ ! -d "graphs" ]; then
-    mkdir graphs
-fi
+# Nettoyage
+mkdir -p tmp
+rm -f tmp/*.dat tmp/*.csv
 
-# Nettoyage du dossier tmp
-rm -f tmp/*
+# Execution et mesure du temps
+START=$(date +%s%N) # Nanosecondes
+./projet "$INPUT_FILE" "$CMD"
+RET=$?
+END=$(date +%s%N)
 
-# Compilation du projet
-echo "Compilation..."
-make
-if [ $? -ne 0 ]; then
-    echo "Erreur lors de la compilation."
+DURATION=$(( ($END - $START) / 1000000 ))
+echo "Durée du traitement C : ${DURATION} ms"
+
+if [ $RET -ne 0 ]; then
+    echo "Le programme C a retourné une erreur."
     exit 1
 fi
 
-# Execution du programme C
-echo "Traitement des donnees..."
-DEBUT=$(date +%s)
+# Gestion des graphiques pour HISTO
+if [ "$CMD" = "histo" ]; then
+    if [ -f "data_usine.csv" ]; then
+        echo "Génération des graphiques..."
 
-# Lancement de l'executable avec les parametres
-./projet "$FICHIER" "$STATION" "$CONSO" "$ID"
+        # Tri décroissant sur la capacité (colonne 2) pour les 10 plus grands
+        sort -t";" -k2 -nr data_usine.csv | head -n 10 > tmp/top10.dat
+        
+        # Tri croissant sur la capacité pour les 50 plus petits
+        # On filtre ceux qui ont une capacité > 0 pour éviter les erreurs
+        awk -F";" '$2 > 0' data_usine.csv | sort -t";" -k2 -n | head -n 50 > tmp/bot50.dat
 
-if [ $? -ne 0 ]; then
-    echo "Erreur lors de l'execution du programme C."
-    exit 1
-fi
-
-FIN=$(date +%s)
-DUREE=$((FIN - DEBUT))
-echo "Duree du traitement : $DUREE s"
-
-# Traitement des graphiques (si ce n'est pas le mode leaks)
-if [ -z "$ID" ]; then
-    echo "Generation du graphique..."
-    
-    # Le fichier de sortie du C est suppose etre tmp/output.csv
-    # On trie les donnees par la 2eme colonne (numerique decroissant)
-    # On garde les 10 premiers (min et max a adapter selon le besoin)
-    sort -t ";" -k 2 -n -r tmp/data.csv | head -n 10 > tmp/data_sorted.dat
-
-    # Generation de l'image avec Gnuplot
-    gnuplot << EOF
-    set terminal png size 800,600
-    set output 'graphs/resultat.png'
-    set title "Graphique $STATION $CONSO"
-    set style data histograms
-    set style fill solid
-    set datafile separator ";"
-    set ylabel "KWh / m3"
-    set xlabel "ID Station"
-    set xtics rotate
-    plot "tmp/data_sorted.dat" using 2:xtic(1) title "Volume"
+        # Gnuplot pour le BONUS (Stacked Histogram) - Top 10
+        # On veut superposer : Source (vert), Traité (bleu), Capacité (rouge/fond) ?
+        # Selon l'image fournie : 
+        # Large barre rouge fond = Capacité
+        # Barre verte = Source (Capté)
+        # Barre bleue (dans le vert) = Traité (Réel)
+        
+        gnuplot << EOF
+        set terminal pngcairo size 1200,800 enhanced font 'Verdana,10'
+        set output 'histo_all_high.png'
+        set title "Plant data (10 greatest)" font ",20"
+        set style data histograms
+        set style histogram cluster gap 1
+        set style fill solid 1.0 border -1
+        set datafile separator ";"
+        set ylabel "Volume (M.m3)" font ",16"
+        set xtics rotate by -90
+        set boxwidth 0.9 absolute
+        
+        # Astuce pour l'effet "imbriqué" (Bonus):
+        # On dessine la capacité (large), puis le captage (moins large), puis le traité
+        
+        plot 'tmp/top10.dat' using 2:xtic(1) title 'Capacity' lc rgb "#ffaaaa", \
+             ''              using 3 title 'Source' lc rgb "#ccffcc", \
+             ''              using 4 title 'Treated' lc rgb "#ccccff"
 EOF
 
-    echo "Graphique disponible dans graphs/resultat.png"
-else
-    # Mode leaks : affichage simple
-    if [ -f "tmp/data.csv" ]; then
-        echo "Resultat :"
-        cat tmp/data.csv
+        # Gnuplot pour les 50 plus petits
+        gnuplot << EOF
+        set terminal pngcairo size 1200,800 enhanced font 'Verdana,8'
+        set output 'histo_all_low.png'
+        set title "Plant data (50 lowest)" font ",20"
+        set style data histograms
+        set style fill solid 1.0 border -1
+        set datafile separator ";"
+        set ylabel "Volume (M.m3)" font ",16"
+        set xtics rotate by -90
+        
+        plot 'tmp/bot50.dat' using 2:xtic(1) title 'Capacity' lc rgb "#ffaaaa", \
+             ''              using 3 title 'Source' lc rgb "#ccffcc", \
+             ''              using 4 title 'Treated' lc rgb "#ccccff"
+EOF
+        
+        echo "Images générées : histo_all_high.png et histo_all_low.png"
+    else
+        echo "Erreur: Pas de données en sortie."
     fi
 fi

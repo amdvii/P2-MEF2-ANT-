@@ -4,52 +4,48 @@
 #include "fichier.h"
 
 int main(int argc, char *argv[]) {
-    // on verifie qu'il y a assez d'arguments
-    if (argc < 4) {
-        printf("Il manque des arguments : fichier csv, station, conso\n");
+    // 1. Verification arguments de base
+    if (argc < 3) {
+        printf("Usage: %s [fichier.csv] [commande] [arg_opt]\n", argv[0]);
         return 1;
     }
 
-    // recuperation des arguments
     char* nom_fichier = argv[1];
-    char* type_station = argv[2];
-    char* type_conso = argv[3];
-    
-    // on regarde si y a un 4eme argument pour l'id (leaks)
-    char* id_station = NULL;
-    if (argc >= 5) {
-        id_station = argv[4];
-    }
+    char* commande = argv[2];
+    // char* sous_commande = (argc >= 4) ? argv[3] : NULL;
 
     AVL* arbre = NULL;
     int h = 0;
 
-    // si on a un id, c'est le mode leaks
-    if (id_station != NULL && strcmp(id_station, "") != 0) {
-        // partie pas finie
-        printf("Mode Leaks pas encore implémenté\n");
-    } 
-    else {
-        // sinon c'est le mode histo
-        // on remplit l'arbre avec les donnees du fichier
-        traiter_fichier(nom_fichier, type_station, type_conso, &arbre, &h);
+    if (strcmp(commande, "histo") == 0) {
+        // Traitement pour l'histogramme des usines
+        traiter_fichier(nom_fichier, &arbre, &h);
 
-        // creation du fichier temporaire pour le shell
-        FILE* fichier_sortie = fopen("tmp/data.csv", "w");
+        // Ecriture dans un fichier temporaire unique
+        // Le Shell se chargera de trier et de faire les graphiques
+        FILE* fichier_sortie = fopen("data_usine.csv", "w");
         if (fichier_sortie == NULL) {
-            printf("Erreur lors de la creation du fichier tmp\n");
+            perror("Erreur creation fichier sortie");
             libererAVL(arbre);
-            return 1;
+            return 2;
         }
         
-        // on ecrit les resultats dedans
-        ecrire_resultats(arbre, fichier_sortie, "max"); 
+        // En-tete pour information (facultatif si le shell gere)
+        // fprintf(fichier_sortie, "Usine;Capacite;Source;Traite\n");
+        
+        ecrire_resultats(arbre, fichier_sortie);
         
         fclose(fichier_sortie);
+    } 
+    else if (strcmp(commande, "leaks") == 0) {
+        printf("Fonctionnalite leaks non implementee dans cet exemple (voir sujet).\n");
+        // Ici il faudrait une logique de graphe differente (AVL parents + Liste enfants)
+    }
+    else {
+        printf("Commande inconnue : %s\n", commande);
+        return 3;
     }
 
-    // on libere la memoire a la fin
     libererAVL(arbre);
-    
     return 0;
 }

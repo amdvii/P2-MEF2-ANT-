@@ -10,9 +10,9 @@
 
 typedef struct {
     char id_usine[MAX_ID_TAILLE];
-    double capacite_max;
-    double volume_source;
-    double volume_traite;
+    double capacite_max;    // Capacité de l'usine (Ligne "Usine")
+    double volume_source;   // Somme des captages (Lignes "Source -> Usine")
+    double volume_traite;   // Somme des captages * (1 - fuites)
 } Usine_donnees;
 
 typedef struct avl {
@@ -38,9 +38,10 @@ AVL* rechercherAVL(AVL* a, char* id);
 
 void libererAVL(AVL* a);
 
-// --- MODIFICATION ICI : On ajoute les filtres dans les arguments ---
-void traiter_fichier(const char* nom_fichier, char* filtre_station, char* filtre_conso, AVL** arbre, int* h);
+// On retire les filtres "station/conso" inutiles ici, on garde juste le nom du fichier
+void traiter_fichier(const char* nom_fichier, AVL** arbre, int* h);
 
-void ecrire_resultats(AVL* a, FILE* flux, const char* mode);
+// Le mode permettra de choisir quelles colonnes écrire
+void ecrire_resultats(AVL* a, FILE* flux);
 
 #endif
