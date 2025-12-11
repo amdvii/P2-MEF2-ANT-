@@ -70,7 +70,7 @@ echo "Traitement des donnees..."
 DEBUT=$(date +%s)
 
 # Lancement de l'executable avec les parametres
-./c-wire "$FICHIER" "$STATION" "$CONSO" "$ID"
+./projet "$FICHIER" "$STATION" "$CONSO" "$ID"
 
 if [ $? -ne 0 ]; then
     echo "Erreur lors de l'execution du programme C."
@@ -88,7 +88,7 @@ if [ -z "$ID" ]; then
     # Le fichier de sortie du C est suppose etre tmp/output.csv
     # On trie les donnees par la 2eme colonne (numerique decroissant)
     # On garde les 10 premiers (min et max a adapter selon le besoin)
-    sort -t ";" -k 2 -n -r tmp/output.csv | head -n 10 > tmp/data_sorted.dat
+    sort -t ";" -k 2 -n -r tmp/data.csv | head -n 10 > tmp/data_sorted.dat
 
     # Generation de l'image avec Gnuplot
     gnuplot << EOF
@@ -107,8 +107,8 @@ EOF
     echo "Graphique disponible dans graphs/resultat.png"
 else
     # Mode leaks : affichage simple
-    if [ -f "tmp/output.csv" ]; then
+    if [ -f "tmp/data.csv" ]; then
         echo "Resultat :"
-        cat tmp/output.csv
+        cat tmp/data.csv
     fi
 fi

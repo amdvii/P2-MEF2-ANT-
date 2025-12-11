@@ -4,53 +4,52 @@
 #include "fichier.h"
 
 int main(int argc, char *argv[]) {
-    // Vérification des arguments
-    // argv[1] : chemin fichier CSV
-    // argv[2] : commande (histo ou leaks)
-    // argv[3] : option (max, src, real) ou ID station
-    
+    // on verifie qu'il y a assez d'arguments
     if (argc < 4) {
-        fprintf(stderr, "Usage: %s <fichier.csv> <commande> <option>\n", argv[0]);
+        printf("Il manque des arguments : fichier csv, station, conso\n");
         return 1;
     }
 
-    char* fichier_csv = argv[1];
-    char* commande = argv[2];
-    char* option = argv[3];
+    // recuperation des arguments
+    char* nom_fichier = argv[1];
+    char* type_station = argv[2];
+    char* type_conso = argv[3];
+    
+    // on regarde si y a un 4eme argument pour l'id (leaks)
+    char* id_station = NULL;
+    if (argc >= 5) {
+        id_station = argv[4];
+    }
 
-    AVL* monArbre = NULL;
+    AVL* arbre = NULL;
     int h = 0;
 
-    if (strcmp(commande, "histo") == 0) {
-        // 1. Chargement et traitement des données
-        traiter_fichier(fichier_csv, &monArbre, &h);
+    // si on a un id, c'est le mode leaks
+    if (id_station != NULL && strcmp(id_station, "") != 0) {
+        // partie pas finie
+        printf("Mode Leaks pas encore implémenté\n");
+    } 
+    else {
+        // sinon c'est le mode histo
+        // on remplit l'arbre avec les donnees du fichier
+        traiter_fichier(nom_fichier, type_station, type_conso, &arbre, &h);
 
-        // 2. Écriture du fichier de sortie pour Gnuplot
-        // Le nom du fichier est imposé ou choisi, ici on écrit sur la sortie standard ou un fichier temporaire
-        // Pour simplifier l'intégration shell, on va écrire dans un fichier "temp_data.csv"
-        
-        FILE* out = fopen("temp_data.csv", "w");
-        if (out == NULL) {
-            perror("Erreur création fichier temporaire");
-            libererAVL(monArbre);
-            return 3;
+        // creation du fichier temporaire pour le shell
+        FILE* fichier_sortie = fopen("tmp/data.csv", "w");
+        if (fichier_sortie == NULL) {
+            printf("Erreur lors de la creation du fichier tmp\n");
+            libererAVL(arbre);
+            return 1;
         }
         
-        // En-tête (optionnel selon Gnuplot)
-        // fprintf(out, "Station;Volume\n"); 
+        // on ecrit les resultats dedans
+        ecrire_resultats(arbre, fichier_sortie, "max"); 
         
-        ecrire_resultats(monArbre, out, option);
-        
-        fclose(out);
-        
-    } else if (strcmp(commande, "leaks") == 0) {
-        printf("Fonctionnalité leaks à implémenter...\n");
-        // Logique pour leaks ici
-    } else {
-        fprintf(stderr, "Commande inconnue : %s\n", commande);
-        return 1;
+        fclose(fichier_sortie);
     }
 
-    libererAVL(monArbre);
+    // on libere la memoire a la fin
+    libererAVL(arbre);
+    
     return 0;
 }

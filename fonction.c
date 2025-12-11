@@ -1,41 +1,49 @@
 #include "fichier.h"
+#include <string.h>
 
+// --- Fonctions utilitaires ---
 
+// Fonction simple pour le maximum
 int max(int a, int b) {
     if (a > b) {
         return a;
-    } else {
-        return b;
     }
+    return b;
 }
 
+// Fonction simple pour le minimum
 int min(int a, int b) {
     if (a < b) {
         return a;
-    } else {
-        return b;
     }
+    return b;
 }
+
+// --- Fonctions AVL ---
 
 AVL* creerArbre(Usine_donnees* data) {
-    AVL* noeud = malloc(sizeof(AVL));
-    if (noeud == NULL) {
+    AVL* nouveau = malloc(sizeof(AVL));
+    if (nouveau == NULL) {
         exit(1);
     }
-    noeud->element = data;
-    noeud->fg = NULL;
-    noeud->fd = NULL;
-    noeud->equilibre = 0;
-    return noeud;
+    nouveau->element = data;
+    nouveau->fg = NULL;
+    nouveau->fd = NULL;
+    nouveau->equilibre = 0;
+    return nouveau;
 }
 
+// Rotation simple gauche
 AVL* rotationGauche(AVL* a) {
-    AVL* pivot = a->fd;
-    int eq_a = a->equilibre;
-    int eq_p = pivot->equilibre;
+    AVL* pivot;
+    int eq_a, eq_p;
 
+    pivot = a->fd;
     a->fd = pivot->fg;
     pivot->fg = a;
+
+    eq_a = a->equilibre;
+    eq_p = pivot->equilibre;
 
     a->equilibre = eq_a - 1 - max(eq_p, 0);
     pivot->equilibre = eq_p - 1 + min(a->equilibre, 0);
@@ -43,13 +51,17 @@ AVL* rotationGauche(AVL* a) {
     return pivot;
 }
 
+// Rotation simple droite
 AVL* rotationDroite(AVL* a) {
-    AVL* pivot = a->fg;
-    int eq_a = a->equilibre;
-    int eq_p = pivot->equilibre;
+    AVL* pivot;
+    int eq_a, eq_p;
 
+    pivot = a->fg;
     a->fg = pivot->fd;
     pivot->fd = a;
+
+    eq_a = a->equilibre;
+    eq_p = pivot->equilibre;
 
     a->equilibre = eq_a + 1 - min(eq_p, 0);
     pivot->equilibre = eq_p + 1 + max(a->equilibre, 0);
@@ -74,8 +86,7 @@ AVL* equilibrerAVL(AVL* a) {
         } else {
             return doubleRotationGauche(a);
         }
-    }
-    else if (a->equilibre <= -2) {
+    } else if (a->equilibre <= -2) {
         if (a->fg->equilibre <= 0) {
             return rotationDroite(a);
         } else {
@@ -96,18 +107,15 @@ AVL* insertionAVL(AVL* a, Usine_donnees* e, int* h) {
     if (cmp < 0) {
         a->fg = insertionAVL(a->fg, e, h);
         *h = -(*h);
-    }
-    else if (cmp > 0) {
+    } else if (cmp > 0) {
         a->fd = insertionAVL(a->fd, e, h);
-    }
-    else {
+    } else {
         *h = 0;
         return a;
     }
 
     if (*h != 0) {
         a->equilibre = a->equilibre + *h;
-        
         if (a->equilibre == 0) {
             *h = 0;
         } else {
@@ -132,15 +140,6 @@ void libererAVL(AVL* a) {
     }
 }
 
-void affichageInfixe(AVL* a) {
-    if (a != NULL) {
-        affichageInfixe(a->fg);
-        printf("%s (Eq: %d) - Cap: %.2f\n", a->element->id_usine, a->equilibre, a->element->capacite_max);
-        affichageInfixe(a->fd);
-    }
-}
-
-// Fonction de recherche (à ajouter avant traiter_fichier)
 AVL* rechercherAVL(AVL* a, char* id) {
     if (a == NULL) {
         return NULL;
@@ -155,71 +154,67 @@ AVL* rechercherAVL(AVL* a, char* id) {
     }
 }
 
-void traiter_fichier(const char* nom_fichier, AVL** arbre, int* h) {
+// --- Traitement du fichier ---
+
+void traiter_fichier(const char* nom_fichier, char* filtre_station, char* filtre_conso, AVL** arbre, int* h) {
     FILE* file = fopen(nom_fichier, "r");
     if (file == NULL) {
-        fprintf(stderr, "Erreur : Impossible d'ouvrir le fichier %s\n", nom_fichier);
-        exit(2);
+        printf("Erreur d'ouverture du fichier\n");
+        exit(1);
     }
 
-    char ligne[MAX_LINE_SIZE];
+    char ligne[1024];
+    char col1[50], col2[50], col3[50], col4[50];
+    
+    // On ignore l'entête si besoin, ou on lit directement
+    // Ici on lit ligne par ligne avec fgets
+    while (fgets(ligne, 1024, file) != NULL) {
+        
+        // Utilisation de sscanf pour récupérer les champs séparés par ';'
+        // %[^;] veut dire : lire tout jusqu'au point-virgule
+        int nb_lus = sscanf(ligne, "%[^;];%[^;];%[^;];%[^;]", col1, col2, col3, col4);
 
-    while (fgets(ligne, sizeof(ligne), file)) {
-        // On découpe la ligne
-        char* col1 = strtok(ligne, ";"); // ID Usine (pour info, ou vide)
-        (void)col1; // On ne s'en sert pas pour l'identification du type de ligne
-
-        char* col2 = strtok(NULL, ";"); // Identifiant Amont (ou ID Usine si def)
-        char* col3 = strtok(NULL, ";"); // Identifiant Aval (ou "-" si def)
-        char* col4 = strtok(NULL, ";"); // Volume/Capacité (ou "-" si aval)
-        char* col5 = strtok(NULL, ";"); // Rendement
-
-        // Sécurité si ligne incomplète
-        if (!col2 || !col3 || !col4) continue;
-
-        // --- CAS 1 : Définition d'une usine (Capacité Max) ---
-        // Le PDF dit : Col 3 est "-" ET Col 4 contient la capacité (donc pas "-")
-        if (strcmp(col3, "-") == 0 && strcmp(col4, "-") != 0) {
-             // Ici, col2 est l'identifiant de l'usine
-             AVL* noeud = rechercherAVL(*arbre, col2);
-             if (noeud == NULL) {
-                 // Nouvelle usine trouvée
-                 Usine_donnees* u = malloc(sizeof(Usine_donnees));
-                 strcpy(u->id_usine, col2);
-                 u->capacite_max = atof(col4);
-                 u->volume_source = 0;
-                 u->volume_traite = 0;
-                 *arbre = insertionAVL(*arbre, u, h);
-             } else {
-                 // Usine déjà connue (via une source), on met à jour sa capacité
-                 noeud->element->capacite_max = atof(col4);
-             }
+        if (nb_lus < 4) {
+            continue; 
         }
 
-        // --- CAS 2 : Liaison Source -> Usine (Volume capté) ---
-        // Le PDF dit : Col 3 est l'usine, Col 4 est le volume (donc pas "-")
-        // Note : Les lignes vers Stockage/Jonction ont "-" en Col 4, donc elles sont exclues ici.
-        else if (strcmp(col3, "-") != 0 && strcmp(col4, "-") != 0) {
-            // Ici, col3 est l'identifiant de l'usine (destination de la source)
-            char* id_usine = col3; 
-            double volume = atof(col4);
-            (void)col5; // Pour éviter le warning
+        // On enlève le filtre sur col1 pour l'instant car ton fichier commence par "-"
+        // C'est ici qu'on rétablira le filtre plus tard si le format change
 
-            AVL* noeud = rechercherAVL(*arbre, id_usine);
+        // Cas 1 : Définition d'une station (col3 est un tiret "-")
+        if (strcmp(col3, "-") == 0) {
+            AVL* noeud = rechercherAVL(*arbre, col2);
+            
             if (noeud == NULL) {
-                // On découvre l'usine via la source
+                // Création d'une nouvelle structure
                 Usine_donnees* u = malloc(sizeof(Usine_donnees));
-                strcpy(u->id_usine, id_usine);
-                u->capacite_max = 0; // On ne la connait pas encore
-                u->volume_source = volume;
-                u->volume_traite = 0;
+                strcpy(u->id_usine, col2);
+                u->capacite_max = atof(col4); // Conversion string -> double
+                u->volume_source = 0;
+                
                 *arbre = insertionAVL(*arbre, u, h);
             } else {
-                // On ajoute le volume à l'usine existante
-                noeud->element->volume_source += volume;
+                // Mise à jour si elle existe déjà
+                noeud->element->capacite_max = atof(col4);
+            }
+        }
+        // Cas 2 : Liaison (col3 n'est pas un tiret)
+        else {
+            AVL* noeud = rechercherAVL(*arbre, col2);
+            
+            if (noeud == NULL) {
+                Usine_donnees* u = malloc(sizeof(Usine_donnees));
+                strcpy(u->id_usine, col2);
+                u->capacite_max = 0;
+                u->volume_source = atof(col4);
+                
+                *arbre = insertionAVL(*arbre, u, h);
+            } else {
+                noeud->element->volume_source = noeud->element->volume_source + atof(col4);
             }
         }
     }
+
     fclose(file);
 }
 
@@ -227,12 +222,16 @@ void ecrire_resultats(AVL* a, FILE* flux, const char* mode) {
     if (a != NULL) {
         ecrire_resultats(a->fg, flux, mode);
         
-        double valeur = 0.0;
-        if (strcmp(mode, "max") == 0) valeur = a->element->capacite_max;
-        else if (strcmp(mode, "src") == 0) valeur = a->element->volume_source;
-        // else if (strcmp(mode, "real") == 0) valeur = a->element->volume_traite;
+        double valeur = 0;
+        
+        // On prend la valeur la plus pertinente
+        if (a->element->capacite_max > 0) {
+            valeur = a->element->capacite_max;
+        } else {
+            valeur = a->element->volume_source;
+        }
 
-        // On n'écrit que si la valeur est pertinente (non nulle)
+        // On écrit dans le fichier si la valeur est positive
         if (valeur > 0) {
             fprintf(flux, "%s;%.2f\n", a->element->id_usine, valeur);
         }

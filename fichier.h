@@ -1,4 +1,4 @@
-#ifndef FICHIER_H  
+#ifndef FICHIER_H
 #define FICHIER_H
 
 #include <stdio.h>
@@ -22,12 +22,12 @@ typedef struct avl {
     int equilibre;
 } AVL;
 
+// Utilitaires
 int max(int a, int b);
 int min(int a, int b);
 
 // AVL
 AVL* creerArbre(Usine_donnees* data);
-
 AVL* rotationDroite(AVL* a);
 AVL* rotationGauche(AVL* a);
 AVL* doubleRotationGauche(AVL* a);
@@ -37,9 +37,10 @@ AVL* insertionAVL(AVL* a, Usine_donnees* e, int* h);
 AVL* rechercherAVL(AVL* a, char* id);
 
 void libererAVL(AVL* a);
-void affichageInfixe(AVL* a);
 
-void traiter_fichier(const char* nom_fichier, AVL** arbre, int* h);
+// --- MODIFICATION ICI : On ajoute les filtres dans les arguments ---
+void traiter_fichier(const char* nom_fichier, char* filtre_station, char* filtre_conso, AVL** arbre, int* h);
+
 void ecrire_resultats(AVL* a, FILE* flux, const char* mode);
 
 #endif
