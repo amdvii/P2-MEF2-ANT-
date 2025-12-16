@@ -75,6 +75,16 @@ if [ "$CMD" = "histo" ]; then
   tail -n +2 "$DAT" | sort -t";" -k2 -nr | head -n 10 > tmp/top10.dat
   tail -n +2 "$DAT" | awk -F";" '$2 > 0' | sort -t";" -k2 -n | head -n 50 > tmp/bot50.dat
 
+  # ---- PATCH : si vide, gnuplot ne peut pas tracer (x range invalid) ----
+  if [ ! -s tmp/top10.dat ] || [ ! -s tmp/bot50.dat ]; then
+    echo "Aucune donnée valide à tracer (top10/bot50 vides)."
+    echo "Vérifie histo_*.dat :"
+    wc -l "$DAT"
+    head -n 3 "$DAT"
+    exit 1
+  fi
+
+
   # Générer PNG (noms = noms du .dat + suffixes)
   HIGH="${DAT%.dat}_high.png"
   LOW="${DAT%.dat}_low.png"
