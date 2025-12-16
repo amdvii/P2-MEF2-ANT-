@@ -15,5 +15,6 @@ fonction.o: fonction.c fichier.h
 	$(CC) $(CFLAGS) -c fonction.c
 
 clean:
-	rm -f $(OBJ) $(EXEC) *.dat *.png
+	rm -f $(OBJ) $(EXEC)
+	rm -f histo_*.dat histo_*.png leaks.dat
 	rm -rf tmp

@@ -19,25 +19,10 @@ int est_tiret_ou_vide(const char *s) {
 }
 
 double atof_safe(const char *s, int *ok) {
-    if (!s) { if (ok) *ok = 0; return 0.0; }
-
-    char buf[128];
-    size_t j = 0;
-
-    /* Copie en supprimant espaces/tab, en remplaçant ',' par '.' */
-    for (size_t i = 0; s[i] && j < sizeof(buf)-1; i++) {
-        char c = s[i];
-        if (c == ' ' || c == '\t' || c == '\r' || c == '\n') continue;
-        if (c == ',') c = '.';
-        buf[j++] = c;
-    }
-    buf[j] = '\0';
-
-    errno = 0;
     char *end = NULL;
-    double v = strtod(buf, &end);
-
-    if (errno != 0 || end == buf) {
+    errno = 0;
+    double v = strtod(s, &end);
+    if (errno != 0 || end == s) {
         if (ok) *ok = 0;
         return 0.0;
     }
@@ -45,27 +30,12 @@ double atof_safe(const char *s, int *ok) {
     return v;
 }
 
-
 /* Parsing manuel 5 colonnes ; accepte champs vides ; remplace ; par \0 */
 int split_5_colonnes(char *ligne, char *col[5]) {
     if (!ligne) return 0;
     nettoyer_fin_ligne(ligne);
 
     for (int i = 0; i < 5; i++) col[i] = NULL;
-
-        /* ---- PATCH GROS FICHIER : détecter séparateur ',' au lieu de ';' ---- */
-    int nb_semicol = 0, nb_comma = 0;
-    for (char *p = ligne; *p; p++) {
-        if (*p == ';') nb_semicol++;
-        else if (*p == ',') nb_comma++;
-    }
-    /* si on n'a pas assez de ';' mais beaucoup de ',' : on convertit ',' -> ';' */
-    if (nb_semicol < 4 && nb_comma >= 4) {
-        for (char *p = ligne; *p; p++) {
-            if (*p == ',') *p = ';';
-        }
-    }
-
     col[0] = ligne;
 
     int c = 1;
