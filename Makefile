@@ -1,31 +1,19 @@
-
-PROG = projet
-
-# Sources
-SRC = main.c fonction.c
-
-OBJ = $(SRC:.c=.o)
-
-#Compilateur
 CC = gcc
+CFLAGS = -Wall -Wextra -O2
+OBJ = main.o fonction.o
+EXEC = projet
 
-#Compilation
-CFLAGS = -Wall -g
+all: $(EXEC)
 
-all: $(PROG)
+$(EXEC): $(OBJ)
+	$(CC) $(CFLAGS) -o $(EXEC) $(OBJ)
 
-$(PROG): $(OBJ)
-	$(CC) -o $(PROG) $(OBJ) -lm
+main.o: main.c fichier.h
+	$(CC) $(CFLAGS) -c main.c
 
+fonction.o: fonction.c fichier.h
+	$(CC) $(CFLAGS) -c fonction.c
 
-%.o: %.c fichier.h
-	$(CC) $(CFLAGS) -c $< -o $@
-
-# Nettoyage
 clean:
-	rm -f *.o $(PROG)
-
-# Règle lancement programme
-run: $(PROG)
-	./$(PROG)
-
+	rm -f $(OBJ) $(EXEC) *.dat *.png
+	rm -rf tmp

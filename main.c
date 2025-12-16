@@ -1,51 +1,56 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 #include "fichier.h"
 
-int main(int argc, char *argv[]) {
-    // 1. Verification arguments de base
+static void usage(const char *prog) {
+    fprintf(stderr,
+        "Usage:\n"
+        "  %s <datafile> histo <max|src|real>\n"
+        "  %s <datafile> leaks \"<ID usine>\"\n",
+        prog, prog
+    );
+}
+
+int main(int argc, char **argv) {
     if (argc < 3) {
-        printf("Usage: %s [fichier.csv] [commande] [arg_opt]\n", argv[0]);
+        usage(argv[0]);
         return 1;
     }
 
-    char* nom_fichier = argv[1];
-    char* commande = argv[2];
-    // char* sous_commande = (argc >= 4) ? argv[3] : NULL;
+    const char *datafile = argv[1];
+    const char *cmd = argv[2];
 
-    AVL* arbre = NULL;
-    int h = 0;
-
-    if (strcmp(commande, "histo") == 0) {
-        // Traitement pour l'histogramme des usines
-        traiter_fichier(nom_fichier, &arbre, &h);
-
-        // Ecriture dans un fichier temporaire unique
-        // Le Shell se chargera de trier et de faire les graphiques
-        FILE* fichier_sortie = fopen("data_usine.csv", "w");
-        if (fichier_sortie == NULL) {
-            perror("Erreur creation fichier sortie");
-            libererAVL(arbre);
+    if (strcmp(cmd, "histo") == 0) {
+        if (argc != 4) {
+            fprintf(stderr, "Erreur: commande histo incomplète ou arguments en trop.\n");
+            usage(argv[0]);
             return 2;
         }
-        
-        // En-tete pour information (facultatif si le shell gere)
-        // fprintf(fichier_sortie, "Usine;Capacite;Source;Traite\n");
-        
-        ecrire_resultats(arbre, fichier_sortie);
-        
-        fclose(fichier_sortie);
-    } 
-    else if (strcmp(commande, "leaks") == 0) {
-        printf("Fonctionnalite leaks non implementee dans cet exemple (voir sujet).\n");
-        // Ici il faudrait une logique de graphe differente (AVL parents + Liste enfants)
-    }
-    else {
-        printf("Commande inconnue : %s\n", commande);
-        return 3;
+        const char *opt = argv[3];
+
+        ModeHisto mode;
+        const char *out = NULL;
+
+        if (strcmp(opt, "max") == 0) { mode = HISTO_MAX; out = "histo_max.dat"; }
+        else if (strcmp(opt, "src") == 0) { mode = HISTO_SRC; out = "histo_src.dat"; }
+        else if (strcmp(opt, "real") == 0) { mode = HISTO_REAL; out = "histo_real.dat"; }
+        else {
+            fprintf(stderr, "Erreur: option histo invalide (%s). Attendu: max|src|real\n", opt);
+            return 3;
+        }
+
+        return traiter_histo(datafile, mode, out);
     }
 
-    libererAVL(arbre);
-    return 0;
+    if (strcmp(cmd, "leaks") == 0) {
+        if (argc != 4) {
+            fprintf(stderr, "Erreur: commande leaks incomplète ou arguments en trop.\n");
+            usage(argv[0]);
+            return 4;
+        }
+        const char *id_usine = argv[3];
+        return traiter_leaks(datafile, id_usine, "leaks.dat");
+    }
+
+    fprintf(stderr, "Erreur: commande inconnue (%s).\n", cmd);
+    usage(argv[0]);
+    return 5;
 }
