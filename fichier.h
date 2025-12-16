@@ -4,7 +4,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <errno.h>
 
 /* -------- Constantes -------- */
 #define MAX_LIGNE 2048

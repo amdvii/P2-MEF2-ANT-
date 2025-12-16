@@ -1,6 +1,6 @@
 #include "fichier.h"
 
-static void usage(const char *prog) {
+void usage(const char *prog) {
     fprintf(stderr,
         "Usage:\n"
         "  %s <datafile> histo <max|src|real>\n"
@@ -15,6 +15,7 @@ int main(int argc, char **argv) {
         return 1;
     }
 
+        /* argv: datafile, commande, option */
     const char *datafile = argv[1];
     const char *cmd = argv[2];
 

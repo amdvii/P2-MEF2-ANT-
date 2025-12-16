@@ -1,8 +1,7 @@
 #include "fichier.h"
 
 /* ============================================================
-   Utilitaires
-   ============================================================ */
+   Utilitaires*/
 
 void nettoyer_fin_ligne(char *s) {
     size_t n = strlen(s);
@@ -19,18 +18,28 @@ int est_tiret_ou_vide(const char *s) {
 }
 
 double atof_safe(const char *s, int *ok) {
+    /* Convertit s en double. ok=1 si la chaîne est un nombre valide. */
     char *end = NULL;
-    errno = 0;
     double v = strtod(s, &end);
-    if (errno != 0 || end == s) {
+
+    if (end == s) { /* rien n'a été converti */
         if (ok) *ok = 0;
         return 0.0;
     }
+
+    /* ignorer espaces après le nombre */
+    while (*end == ' ' || *end == '	') end++;
+
+    if (*end != '\0') { /* il reste des caractères non numériques */
+        if (ok) *ok = 0;
+        return 0.0;
+    }
+
     if (ok) *ok = 1;
     return v;
 }
 
-/* Parsing manuel 5 colonnes ; accepte champs vides ; remplace ; par \0 */
+/* Découpe ligne en 5 colonnes séparées par ';' (champs vides acceptés). */
 int split_5_colonnes(char *ligne, char *col[5]) {
     if (!ligne) return 0;
     nettoyer_fin_ligne(ligne);
@@ -48,54 +57,56 @@ int split_5_colonnes(char *ligne, char *col[5]) {
 
     /* si moins de 5 colonnes, on complète par "" */
     for (int i = 0; i < 5; i++) {
-        if (col[i] == NULL) col[i] = (char*)"";
+        if (col[i] == NULL) col[i] = "";
     }
     return 1;
 }
 
 /* ============================================================
-   AVL Usine (par id_usine)
-   ============================================================ */
+   AVL Usine (par id_usine)*/
 
-static int max2(int a, int b) { return (a > b) ? a : b; }
+int max_int(int a, int b) {
+    if (a > b) return a;
+    return b;
+}
 
-static AVLUsine* avlU_creer(UsineDonnees *u) {
-    AVLUsine *n = (AVLUsine*)malloc(sizeof(AVLUsine));
+int min_int(int a, int b) {
+    if (a < b) return a;
+    return b;
+}
+AVLUsine* avlU_creer(UsineDonnees *u) {
+    AVLUsine *n = malloc(sizeof(AVLUsine));
     if (!n) return NULL;
     n->u = u;
     n->fg = n->fd = NULL;
     n->eq = 0;
     return n;
 }
-
-static AVLUsine* rotG_U(AVLUsine *a) {
+AVLUsine* rotG_U(AVLUsine *a) {
     AVLUsine *p = a->fd;
     int eq_a = a->eq, eq_p = p->eq;
 
     a->fd = p->fg;
     p->fg = a;
 
-    a->eq = eq_a - 1 - max2(eq_p, 0);
-    p->eq = eq_p - 1 + ((a->eq < 0) ? a->eq : 0);
+    a->eq = eq_a - 1 - max_int(eq_p, 0);
+    p->eq = eq_p - 1 + min_int(a->eq, 0);
     return p;
 }
-
-static AVLUsine* rotD_U(AVLUsine *a) {
+AVLUsine* rotD_U(AVLUsine *a) {
     AVLUsine *p = a->fg;
     int eq_a = a->eq, eq_p = p->eq;
 
     a->fg = p->fd;
     p->fd = a;
 
-    a->eq = eq_a + 1 - ((eq_p > 0) ? eq_p : 0);
-    p->eq = eq_p + 1 + max2(a->eq, 0);
+    a->eq = eq_a + 1 - max_int(eq_p, 0);
+    p->eq = eq_p + 1 + max_int(a->eq, 0);
     return p;
 }
-
-static AVLUsine* rotGD_U(AVLUsine *a) { a->fd = rotD_U(a->fd); return rotG_U(a); }
-static AVLUsine* rotDG_U(AVLUsine *a) { a->fg = rotG_U(a->fg); return rotD_U(a); }
-
-static AVLUsine* equilibrer_U(AVLUsine *a) {
+AVLUsine* rotGD_U(AVLUsine *a) { a->fd = rotD_U(a->fd); return rotG_U(a); }
+AVLUsine* rotDG_U(AVLUsine *a) { a->fg = rotG_U(a->fg); return rotD_U(a); }
+AVLUsine* equilibrer_U(AVLUsine *a) {
     if (a->eq >= 2) {
         if (a->fd && a->fd->eq >= 0) return rotG_U(a);
         return rotGD_U(a);
@@ -108,6 +119,7 @@ static AVLUsine* equilibrer_U(AVLUsine *a) {
 }
 
 AVLUsine* avlU_inserer(AVLUsine *a, UsineDonnees *u, int *h) {
+    /* Insertion AVL (id_usine). h = variation de hauteur. */
     if (!a) { *h = 1; return avlU_creer(u); }
 
     int cmp = strcmp(u->id_usine, a->u->id_usine);
@@ -152,7 +164,7 @@ void avlU_liberer(AVLUsine *a) {
     free(a);
 }
 
-/* écriture inverse : fd -> noeud -> fg  (ordre alphabétique inverse) */
+/* Parcours fd -> noeud -> fg (ordre inverse). */
 void avlU_ecrire_inverse(AVLUsine *a, FILE *f, ModeHisto mode) {
     if (!a) return;
     avlU_ecrire_inverse(a->fd, f, mode);
@@ -170,46 +182,40 @@ void avlU_ecrire_inverse(AVLUsine *a, FILE *f, ModeHisto mode) {
 }
 
 /* ============================================================
-   AVL Noeud (index pour leaks)
-   ============================================================ */
-
-static AVLNoeud* avlN_creer(Noeud *n) {
-    AVLNoeud *x = (AVLNoeud*)malloc(sizeof(AVLNoeud));
+   AVL Noeud (index pour leaks) */
+AVLNoeud* avlN_creer(Noeud *n) {
+    AVLNoeud *x = malloc(sizeof(AVLNoeud));
     if (!x) return NULL;
     x->n = n;
     x->fg = x->fd = NULL;
     x->eq = 0;
     return x;
 }
-
-static AVLNoeud* rotG_N(AVLNoeud *a) {
+AVLNoeud* rotG_N(AVLNoeud *a) {
     AVLNoeud *p = a->fd;
     int eq_a = a->eq, eq_p = p->eq;
 
     a->fd = p->fg;
     p->fg = a;
 
-    a->eq = eq_a - 1 - max2(eq_p, 0);
-    p->eq = eq_p - 1 + ((a->eq < 0) ? a->eq : 0);
+    a->eq = eq_a - 1 - max_int(eq_p, 0);
+    p->eq = eq_p - 1 + min_int(a->eq, 0);
     return p;
 }
-
-static AVLNoeud* rotD_N(AVLNoeud *a) {
+AVLNoeud* rotD_N(AVLNoeud *a) {
     AVLNoeud *p = a->fg;
     int eq_a = a->eq, eq_p = p->eq;
 
     a->fg = p->fd;
     p->fd = a;
 
-    a->eq = eq_a + 1 - ((eq_p > 0) ? eq_p : 0);
-    p->eq = eq_p + 1 + max2(a->eq, 0);
+    a->eq = eq_a + 1 - max_int(eq_p, 0);
+    p->eq = eq_p + 1 + max_int(a->eq, 0);
     return p;
 }
-
-static AVLNoeud* rotGD_N(AVLNoeud *a) { a->fd = rotD_N(a->fd); return rotG_N(a); }
-static AVLNoeud* rotDG_N(AVLNoeud *a) { a->fg = rotG_N(a->fg); return rotD_N(a); }
-
-static AVLNoeud* equilibrer_N(AVLNoeud *a) {
+AVLNoeud* rotGD_N(AVLNoeud *a) { a->fd = rotD_N(a->fd); return rotG_N(a); }
+AVLNoeud* rotDG_N(AVLNoeud *a) { a->fg = rotG_N(a->fg); return rotD_N(a); }
+AVLNoeud* equilibrer_N(AVLNoeud *a) {
     if (a->eq >= 2) {
         if (a->fd && a->fd->eq >= 0) return rotG_N(a);
         return rotGD_N(a);
@@ -222,6 +228,7 @@ static AVLNoeud* equilibrer_N(AVLNoeud *a) {
 }
 
 AVLNoeud* avlN_inserer(AVLNoeud *a, Noeud *n, int *h) {
+    /* Insertion AVL (id noeud). */
     if (!a) { *h = 1; return avlN_creer(n); }
 
     int cmp = strcmp(n->id, a->n->id);
@@ -257,8 +264,7 @@ AVLNoeud* avlN_rechercher(AVLNoeud *a, const char *id) {
     if (cmp < 0) return avlN_rechercher(a->fg, id);
     return avlN_rechercher(a->fd, id);
 }
-
-static void free_enfants(Enfant *e) {
+void free_enfants(Enfant *e) {
     while (e) {
         Enfant *n = e->next;
         free(e);
@@ -276,14 +282,19 @@ void avlN_liberer(AVLNoeud *a) {
 }
 
 /* ============================================================
-   Graphe aval (leaks)
-   ============================================================ */
+   Graphe aval (leaks)*/
+
+/* Pile utilisée pour la propagation des débits (traiter_leaks). */
+typedef struct {
+    Noeud *n;
+    double debit;
+} StackItem;
 
 Noeud* get_or_create_noeud(AVLNoeud **index, const char *id) {
     AVLNoeud *found = avlN_rechercher(*index, id);
     if (found) return found->n;
 
-    Noeud *n = (Noeud*)calloc(1, sizeof(Noeud));
+    Noeud *n = calloc(1, sizeof(Noeud));
     if (!n) return NULL;
     strncpy(n->id, id, MAX_ID - 1);
     n->id[MAX_ID - 1] = '\0';
@@ -292,14 +303,16 @@ Noeud* get_or_create_noeud(AVLNoeud **index, const char *id) {
 
     int h = 0;
     *index = avlN_inserer(*index, n, &h);
-    /* si insertion échoue par manque mémoire -> n peut être free dans avlN_inserer,
-       ici on ne gère pas finement : le programme retournera une erreur plus loin */
-    return (avlN_rechercher(*index, id)) ? avlN_rechercher(*index, id)->n : NULL;
+        /* On refait une recherche pour récupérer le pointeur stocké. */
+    found = avlN_rechercher(*index, id);
+    if (found) return found->n;
+    return NULL;
 }
+
 
 void ajouter_arete(Noeud *parent, Noeud *child, double fuite_pct) {
     if (!parent || !child) return;
-    Enfant *e = (Enfant*)malloc(sizeof(Enfant));
+    Enfant *e = malloc(sizeof(Enfant));
     if (!e) return;
     e->child = child;
     e->fuite_pct = fuite_pct;
@@ -313,19 +326,14 @@ void liberer_graphe(AVLNoeud *index) {
 }
 
 /* ============================================================
-   Traitement HISTO
-   ============================================================ */
-
-static const char* header_histo(ModeHisto mode) {
+   Traitement HISTO*/
+const char* header_histo(ModeHisto mode) {
     if (mode == HISTO_MAX)  return "identifier;max volume (M.m3.year-1)\n";
     if (mode == HISTO_SRC)  return "identifier;source volume (M.m3.year-1)\n";
     return "identifier;real volume (M.m3.year-1)\n";
 }
 
-/* Lit le fichier et remplit l'AVL usine :
-   - lignes USINE : col[1]=usine, col[3]=capacité
-   - lignes SOURCE->USINE : col[2]=usine, col[3]=volume capté, col[4]=fuite%
-*/
+/* Lit le CSV et construit l'AVL des usines, puis écrit out_dat. */
 int traiter_histo(const char *chemin_fichier, ModeHisto mode, const char *out_dat) {
     FILE *in = fopen(chemin_fichier, "r");
     if (!in) {
@@ -357,7 +365,7 @@ int traiter_histo(const char *chemin_fichier, ModeHisto mode, const char *out_da
 
             AVLUsine *node = avlU_rechercher(arbre, id_usine);
             if (!node) {
-                UsineDonnees *u = (UsineDonnees*)calloc(1, sizeof(UsineDonnees));
+                UsineDonnees *u = calloc(1, sizeof(UsineDonnees));
                 if (!u) { fclose(in); avlU_liberer(arbre); return 11; }
                 strncpy(u->id_usine, id_usine, MAX_ID-1);
                 u->capacite_max_km3 = cap;
@@ -381,7 +389,7 @@ int traiter_histo(const char *chemin_fichier, ModeHisto mode, const char *out_da
 
             AVLUsine *node = avlU_rechercher(arbre, id_usine);
             if (!node) {
-                UsineDonnees *u = (UsineDonnees*)calloc(1, sizeof(UsineDonnees));
+                UsineDonnees *u = calloc(1, sizeof(UsineDonnees));
                 if (!u) { fclose(in); avlU_liberer(arbre); return 12; }
                 strncpy(u->id_usine, id_usine, MAX_ID-1);
                 arbre = avlU_inserer(arbre, u, &h);
@@ -412,8 +420,7 @@ int traiter_histo(const char *chemin_fichier, ModeHisto mode, const char *out_da
 }
 
 /* ============================================================
-   Traitement LEAKS
-   ============================================================ */
+   Traitement LEAKS*/
 
 /* 1) calcule volume real (Mm3/an) de l'usine via source->usine
    2) construit graphe aval (enfants) pour cette usine
@@ -495,13 +502,7 @@ int traiter_leaks(const char *chemin_fichier, const char *id_usine, const char *
         char *col[5];
         if (!split_5_colonnes(ligne, col)) continue;
 
-        /* Pour le réseau aval, les lignes utiles sont :
-           - USINE -> STOCKAGE : "-;Facility;Storage;-;fuite"
-             => parent = col[1] (usine), child=col[2]
-           - puis toutes les distributions : col[0] == id_usine (eau traitée par cette usine),
-             parent = col[1], child = col[2], fuite = col[4]
-           On ignore source->usine (col[0] == "-" et parent = Spring)
-        */
+                /* Lignes utiles : usine->storage et réseau aval (treated_by == id_usine). */
 
         const char *treated_by = col[0];
         const char *amont = col[1];
@@ -530,20 +531,17 @@ int traiter_leaks(const char *chemin_fichier, const char *id_usine, const char *
     /* --- étape 3 : propagation débit + somme pertes --- */
     /* débit de départ (Mm3) */
     double debit0 = real_km3 / 1000.0;
-
-    typedef struct {
-        Noeud *n;
-        double debit;
-    } StackItem;
-
     size_t cap = 1024, top = 0;
-    StackItem *stack = (StackItem*)malloc(cap * sizeof(StackItem));
+    StackItem *stack = malloc(cap * sizeof(StackItem));
     if (!stack) { liberer_graphe(index); return 35; }
 
-    stack[top++] = (StackItem){ racine, debit0 };
+    stack[top].n = racine;
+    stack[top].debit = debit0;
+    top++;
 
     double pertes = 0.0;
 
+        /* Parcours en profondeur : on partage le débit, on applique les fuites. */
     while (top > 0) {
         StackItem it = stack[--top];
         Noeud *n = it.n;
@@ -565,11 +563,13 @@ int traiter_leaks(const char *chemin_fichier, const char *id_usine, const char *
             if (restant > 0.0 && e->child && e->child->deg > 0) {
                 if (top >= cap) {
                     cap *= 2;
-                    StackItem *tmp = (StackItem*)realloc(stack, cap * sizeof(StackItem));
+                    StackItem *tmp = realloc(stack, cap * sizeof(StackItem));
                     if (!tmp) { free(stack); liberer_graphe(index); return 36; }
                     stack = tmp;
                 }
-                stack[top++] = (StackItem){ e->child, restant };
+                stack[top].n = e->child;
+                stack[top].debit = restant;
+                top++;
             }
         }
     }

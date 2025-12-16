@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Afficher durée totale (ms) quoi qu'il arrive
+# Durée totale du script (ms)
 START_TOTAL=$(date +%s%N)
 finish() {
   END_TOTAL=$(date +%s%N)
@@ -15,15 +15,9 @@ usage() {
   echo "  $0 <datafile> leaks \"<ID usine>\""
 }
 
-# Vérification arguments
-if [ $# -lt 3 ]; then
-  echo "Erreur: commande incomplète."
-  usage
-  exit 1
-fi
-
-if [ $# -gt 3 ]; then
-  echo "Erreur: trop d'arguments."
+# On attend 3 arguments. (Pour leaks : mettre l'ID entre guillemets si besoin.)
+if [ $# -ne 3 ]; then
+  echo "Erreur: nombre d'arguments invalide."
   usage
   exit 1
 fi
@@ -37,7 +31,7 @@ if [ ! -f "$DATAFILE" ]; then
   exit 1
 fi
 
-# Compilation via make si exécutable absent
+# Compile si besoin
 if [ ! -x "./projet" ]; then
   echo "Compilation (make)..."
   make
@@ -57,7 +51,7 @@ if [ $RET -ne 0 ]; then
   exit $RET
 fi
 
-# Post-traitement gnuplot uniquement pour histo
+# Gnuplot uniquement pour histo
 if [ "$CMD" = "histo" ]; then
   case "$OPT" in
     max) DAT="histo_max.dat" ;;
@@ -79,6 +73,7 @@ if [ "$CMD" = "histo" ]; then
   HIGH="${DAT%.dat}_high.png"
   LOW="${DAT%.dat}_low.png"
 
+  # On envoie directement des commandes à gnuplot (here-document)
   gnuplot <<EOF
 set terminal pngcairo size 1400,800 enhanced font 'Verdana,10'
 set output '${HIGH}'
