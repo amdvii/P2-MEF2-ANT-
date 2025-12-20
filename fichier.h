@@ -17,12 +17,17 @@ typedef enum {
     HISTO_ALL  = 3   /* BONUS */
 } ModeHisto;
 
-/* -------- Données usine (AVL) -------- */
+/* -------- Données usine (AVL) --------
+ * On stocke les 3 volumes demandés par le sujet :
+ *  - max  : capacité max (usine)
+ *  - src  : somme des volumes sources->usine
+ *  - real : somme des volumes avec pertes (fuite%)
+ */
 typedef struct {
     char id_usine[MAX_ID];
     double capacite_max_km3;   /* col 4 des lignes USINE (en milliers de m3/an) */
     double volume_src_km3;     /* somme des captages (source->usine) en milliers de m3/an */
-    double volume_real_km3;    /* somme pondérée (src*(1 - fuite%)) en milliers de m3/an */
+    double volume_real_km3;    /* somme pondérée : src*(1 - fuite%) en milliers de m3/an */
 } UsineDonnees;
 
 typedef struct avl_usine {
@@ -32,11 +37,13 @@ typedef struct avl_usine {
     int eq;
 } AVLUsine;
 
-/* -------- Graphe aval (leaks) -------- */
+/* -------- Graphe aval (leaks) --------
+ * On construit un graphe orienté amont -> aval avec un taux de fuite par arête.
+ */
 typedef struct Noeud Noeud;
 
 typedef struct Enfant {
-    Noeud *child;
+    Noeud *child;              /* noeud aval */
     double fuite_pct;          /* pourcentage de fuites sur le tronçon */
     struct Enfant *next;
 } Enfant;
@@ -44,7 +51,7 @@ typedef struct Enfant {
 struct Noeud {
     char id[MAX_ID];
     Enfant *enfants;
-    int deg;
+    int deg;                   /* nombre de sorties (enfants) */
 };
 
 typedef struct avl_noeud {
@@ -54,11 +61,13 @@ typedef struct avl_noeud {
     int eq;
 } AVLNoeud;
 
-/* -------- Stack pour propagation leaks -------- */
+/* -------- Pile (propagation leaks) --------
+ * On propage un débit dans le graphe : chaque élément contient un noeud + le débit qui arrive.
+ */
 typedef struct {
     Noeud *n;
     double debit;
-} StackItem;
+} ElementPile;
 
 /* -------- API principale -------- */
 int traiter_histo(const char *chemin_fichier, ModeHisto mode, const char *out_dat);
@@ -83,7 +92,7 @@ AVLNoeud* avlN_rechercher(AVLNoeud *a, const char *id);
 void avlN_liberer(AVLNoeud *a);
 
 /* -------- Graphe aval -------- */
-Noeud* get_or_create_noeud(AVLNoeud **index, const char *id);
+Noeud* obtenir_ou_creer_noeud(AVLNoeud **index, const char *id);
 void ajouter_arete(Noeud *parent, Noeud *child, double fuite_pct);
 void liberer_graphe(AVLNoeud *index);
 

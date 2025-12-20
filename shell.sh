@@ -6,7 +6,7 @@ usage() {
   echo "  $0 <datafile> leaks \"<ID usine>\""
 }
 
-# Chrono (ms) portable macOS/Linux
+# Chrono (ms) 
 now_ms() {
   if date +%s%N >/dev/null 2>&1; then
     echo $(( $(date +%s%N) / 1000000 ))
