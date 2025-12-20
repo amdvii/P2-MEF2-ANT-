@@ -1,23 +1,29 @@
 #!/bin/bash
 
-# Durée totale du script (ms)
-START_TOTAL=$(date +%s%N)
-finish() {
-  END_TOTAL=$(date +%s%N)
-  DURATION=$(( (END_TOTAL - START_TOTAL) / 1000000 ))
-  echo "Durée totale du script : ${DURATION} ms"
-}
-trap finish EXIT
-
 usage() {
   echo "Usage:"
-  echo "  $0 <datafile> histo <max|src|real>"
+  echo "  $0 <datafile> histo <max|src|real|all>"
   echo "  $0 <datafile> leaks \"<ID usine>\""
 }
 
-# On attend 3 arguments. (Pour leaks : mettre l'ID entre guillemets si besoin.)
+# Chrono (ms) portable macOS/Linux
+now_ms() {
+  if date +%s%N >/dev/null 2>&1; then
+    echo $(( $(date +%s%N) / 1000000 ))
+  else
+    echo $(( $(date +%s) * 1000 ))
+  fi
+}
+
+START_TOTAL=$(now_ms)
+finish() {
+  END_TOTAL=$(now_ms)
+  echo "Durée totale du script : $((END_TOTAL - START_TOTAL)) ms"
+}
+trap finish EXIT
+
 if [ $# -ne 3 ]; then
-  echo "Erreur: nombre d'arguments invalide."
+  echo "Erreur: mauvais nombre d'arguments."
   usage
   exit 1
 fi
@@ -31,19 +37,15 @@ if [ ! -f "$DATAFILE" ]; then
   exit 1
 fi
 
-# Compile si besoin
+# Compilation si besoin
 if [ ! -x "./projet" ]; then
-  echo "Compilation (make)..."
-  make
-  if [ $? -ne 0 ]; then
-    echo "Erreur: compilation échouée."
-    exit 1
-  fi
+  make || exit 1
 fi
 
-mkdir -p tmp
+OUTDIR="output"
+TMPDIR="tmp"
+mkdir -p "$OUTDIR" "$TMPDIR"
 
-# Exécution C
 ./projet "$DATAFILE" "$CMD" "$OPT"
 RET=$?
 if [ $RET -ne 0 ]; then
@@ -51,58 +53,122 @@ if [ $RET -ne 0 ]; then
   exit $RET
 fi
 
-# Gnuplot uniquement pour histo
 if [ "$CMD" = "histo" ]; then
   case "$OPT" in
-    max) DAT="histo_max.dat" ;;
-    src) DAT="histo_src.dat" ;;
-    real) DAT="histo_real.dat" ;;
-    *) echo "Erreur: option histo invalide"; exit 1 ;;
+    max)  DAT="$OUTDIR/histo_max.dat" ;;
+    src)  DAT="$OUTDIR/histo_src.dat" ;;
+    real) DAT="$OUTDIR/histo_real.dat" ;;
+    all)  DAT="$OUTDIR/histo_all.dat" ;;
+    *) echo "Erreur: option histo invalide"; usage; exit 1 ;;
   esac
 
-  if [ ! -f "$DAT" ]; then
-    echo "Erreur: fichier de sortie manquant: $DAT"
+  if ! command -v gnuplot >/dev/null 2>&1; then
+    echo "Erreur: gnuplot n'est pas installé (ou pas dans le PATH)."
     exit 1
   fi
 
-  # Préparer top10 / bot50 (sans l'en-tête)
-  tail -n +2 "$DAT" | sort -t";" -k2 -nr | head -n 10 > tmp/top10.dat
-  tail -n +2 "$DAT" | awk -F";" '$2 > 0' | sort -t";" -k2 -n | head -n 50 > tmp/bot50.dat
+  # Sélection top/bot selon MAX (même si OPT=src/real/all)
+  REF="$OUTDIR/histo_max.dat"
+  if [ ! -f "$REF" ]; then
+    ./projet "$DATAFILE" histo max || exit 1
+  fi
 
-  # Générer PNG (noms = noms du .dat + suffixes)
-  HIGH="${DAT%.dat}_high.png"
-  LOW="${DAT%.dat}_low.png"
+  tail -n +2 "$REF" | sort -t";" -k2 -nr | head -n 10 | cut -d";" -f1 > "$TMPDIR/top10_ids.txt"
+  tail -n +2 "$REF" | awk -F";" '$2 > 0' | sort -t";" -k2 -n | head -n 50 | cut -d";" -f1 > "$TMPDIR/bot50_ids.txt"
 
-  # On envoie directement des commandes à gnuplot (here-document)
-  gnuplot <<EOF
+  if [ "$OPT" = "all" ]; then
+    # id;max;src;real
+    awk -F';' 'NR==FNR{ids[++n]=$1; next}
+      FNR>1{max[$1]=$2; src[$1]=$3; real[$1]=$4}
+      END{for(i=1;i<=n;i++){id=ids[i]; printf "%s;%s;%s;%s\n", id,
+            (id in max?max[id]:0), (id in src?src[id]:0), (id in real?real[id]:0)}}' \
+      "$TMPDIR/top10_ids.txt" "$DAT" > "$TMPDIR/top10.dat"
+
+    awk -F';' 'NR==FNR{ids[++n]=$1; next}
+      FNR>1{max[$1]=$2; src[$1]=$3; real[$1]=$4}
+      END{for(i=1;i<=n;i++){id=ids[i]; printf "%s;%s;%s;%s\n", id,
+            (id in max?max[id]:0), (id in src?src[id]:0), (id in real?real[id]:0)}}' \
+      "$TMPDIR/bot50_ids.txt" "$DAT" > "$TMPDIR/bot50.dat"
+  else
+    # id;val
+    awk -F';' 'NR==FNR{ids[++n]=$1; next}
+      FNR>1{val[$1]=$2}
+      END{for(i=1;i<=n;i++){id=ids[i]; printf "%s;%s\n", id, (id in val?val[id]:0)}}' \
+      "$TMPDIR/top10_ids.txt" "$DAT" > "$TMPDIR/top10.dat"
+
+    awk -F';' 'NR==FNR{ids[++n]=$1; next}
+      FNR>1{val[$1]=$2}
+      END{for(i=1;i<=n;i++){id=ids[i]; printf "%s;%s\n", id, (id in val?val[id]:0)}}' \
+      "$TMPDIR/bot50_ids.txt" "$DAT" > "$TMPDIR/bot50.dat"
+  fi
+
+  BASE="$(basename "$DAT" .dat)"
+  HIGH="$OUTDIR/${BASE}_high.png"
+  LOW="$OUTDIR/${BASE}_low.png"
+
+  if [ "$OPT" = "all" ]; then
+    gnuplot <<EOF
+set terminal pngcairo size 1500,850 enhanced font 'Verdana,10'
+set output '${HIGH}'
+set datafile separator ";"
+set title "Plant histogram (all) - 10 greatest (selected by MAX)" font ",18"
+set style data histograms
+set style histogram rowstacked
+set style fill solid 1.0 border -1
+set boxwidth 0.85
+set ylabel "Volume (M.m3.year-1)"
+set xtics rotate by -90
+plot '${TMPDIR}/top10.dat' using 4:xtic(1) title 'real', \
+     '' using (\$3-\$4) title 'src-real', \
+     '' using (\$2-\$3) title 'max-src'
+EOF
+
+    gnuplot <<EOF
+set terminal pngcairo size 1500,850 enhanced font 'Verdana,9'
+set output '${LOW}'
+set datafile separator ";"
+set title "Plant histogram (all) - 50 lowest (selected by MAX)" font ",18"
+set style data histograms
+set style histogram rowstacked
+set style fill solid 1.0 border -1
+set boxwidth 0.85
+set ylabel "Volume (M.m3.year-1)"
+set xtics rotate by -90
+plot '${TMPDIR}/bot50.dat' using 4:xtic(1) title 'real', \
+     '' using (\$3-\$4) title 'src-real', \
+     '' using (\$2-\$3) title 'max-src'
+EOF
+  else
+    gnuplot <<EOF
 set terminal pngcairo size 1400,800 enhanced font 'Verdana,10'
 set output '${HIGH}'
 set datafile separator ";"
-set title "Plant histogram (${OPT}) - 10 greatest" font ",18"
+set title "Plant histogram (${OPT}) - 10 greatest (selected by MAX)" font ",18"
 set style data histograms
 set style fill solid 1.0 border -1
 set boxwidth 0.85
 set ylabel "Volume (M.m3.year-1)"
 set xtics rotate by -90
-plot 'tmp/top10.dat' using 2:xtic(1) title '${OPT}'
+plot '${TMPDIR}/top10.dat' using 2:xtic(1) title '${OPT}'
 EOF
 
-  gnuplot <<EOF
+    gnuplot <<EOF
 set terminal pngcairo size 1400,800 enhanced font 'Verdana,9'
 set output '${LOW}'
 set datafile separator ";"
-set title "Plant histogram (${OPT}) - 50 lowest" font ",18"
+set title "Plant histogram (${OPT}) - 50 lowest (selected by MAX)" font ",18"
 set style data histograms
 set style fill solid 1.0 border -1
 set boxwidth 0.85
 set ylabel "Volume (M.m3.year-1)"
 set xtics rotate by -90
-plot 'tmp/bot50.dat' using 2:xtic(1) title '${OPT}'
+plot '${TMPDIR}/bot50.dat' using 2:xtic(1) title '${OPT}'
 EOF
+  fi
 
   echo "OK: ${DAT} -> ${HIGH} / ${LOW}"
 fi
 
 if [ "$CMD" = "leaks" ]; then
-  echo "OK: leaks.dat mis à jour"
+  echo "OK: $OUTDIR/leaks.dat mis à jour"
 fi

@@ -1,12 +1,17 @@
 #include "fichier.h"
 
 /* ============================================================
-   Utilitaires*/
+   Utilitaires
+   ============================================================ */
 
 void nettoyer_fin_ligne(char *s) {
-    size_t n = strlen(s);
-    while (n > 0 && (s[n-1] == '\n' || s[n-1] == '\r')) {
-        s[n-1] = '\0';
+    size_t n;
+
+    if (s == NULL) return;
+
+    n = strlen(s);
+    while (n > 0 && (s[n - 1] == '\n' || s[n - 1] == '\r')) {
+        s[n - 1] = '\0';
         n--;
     }
 }
@@ -14,98 +19,148 @@ void nettoyer_fin_ligne(char *s) {
 int est_tiret_ou_vide(const char *s) {
     if (s == NULL) return 1;
     if (s[0] == '\0') return 1;
-    return (strcmp(s, "-") == 0);
+    if (strcmp(s, "-") == 0) return 1;
+    return 0;
 }
 
 double atof_safe(const char *s, int *ok) {
-    /* Convertit s en double. ok=1 si la chaîne est un nombre valide. */
-    char *end = NULL;
-    double v = strtod(s, &end);
+    char *end;
+    double v;
 
-    if (end == s) { /* rien n'a été converti */
-        if (ok) *ok = 0;
-        return 0.0;
-    }
+    if (ok) *ok = 0;
+    if (s == NULL) return 0.0;
+    if (est_tiret_ou_vide(s)) return 0.0;
 
-    /* ignorer espaces après le nombre */
-    while (*end == ' ' || *end == '	') end++;
+    end = NULL;
+    v = strtod(s, &end);
+    if (end == s) return 0.0;
 
-    if (*end != '\0') { /* il reste des caractères non numériques */
-        if (ok) *ok = 0;
-        return 0.0;
-    }
+    while (*end == ' ' || *end == '\t') end++;
+    if (*end != '\0') return 0.0;
 
     if (ok) *ok = 1;
     return v;
 }
 
-/* Découpe ligne en 5 colonnes séparées par ';' (champs vides acceptés). */
+/* Parsing 5 colonnes ; remplace les ';' par '\0' */
 int split_5_colonnes(char *ligne, char *col[5]) {
-    if (!ligne) return 0;
+    int i;
+    int c;
+    char *p;
+
+    if (ligne == NULL) return 0;
     nettoyer_fin_ligne(ligne);
 
-    for (int i = 0; i < 5; i++) col[i] = NULL;
+    for (i = 0; i < 5; i++) col[i] = NULL;
     col[0] = ligne;
 
-    int c = 1;
-    for (char *p = ligne; *p; p++) {
+    c = 1;
+    p = ligne;
+    while (*p) {
         if (*p == ';') {
             *p = '\0';
             if (c < 5) col[c++] = p + 1;
         }
+        p++;
     }
 
-    /* si moins de 5 colonnes, on complète par "" */
-    for (int i = 0; i < 5; i++) {
-        if (col[i] == NULL) col[i] = "";
+    for (i = 0; i < 5; i++) {
+        if (col[i] == NULL) col[i] = (char*)"";
+    }
+    return 1;
+}
+
+/* fgets + purge si ligne trop longue */
+int lire_ligne(FILE *f, char *buf, int taille) {
+    int ch;
+    int len;
+
+    if (fgets(buf, taille, f) == NULL) return 0;
+
+    len = (int)strlen(buf);
+    if (len > 0 && buf[len - 1] != '\n') {
+        do {
+            ch = fgetc(f);
+        } while (ch != '\n' && ch != EOF);
     }
     return 1;
 }
 
 /* ============================================================
-   AVL Usine (par id_usine)*/
+   Helpers AVL
+   ============================================================ */
 
-int max_int(int a, int b) {
+int max2(int a, int b) {
     if (a > b) return a;
     return b;
 }
 
-int min_int(int a, int b) {
-    if (a < b) return a;
-    return b;
+int max0(int x) {
+    if (x > 0) return x;
+    return 0;
 }
+
+int min0(int x) {
+    if (x < 0) return x;
+    return 0;
+}
+
+/* ============================================================
+   AVL Usine (tri par id)
+   ============================================================ */
+
 AVLUsine* avlU_creer(UsineDonnees *u) {
     AVLUsine *n = malloc(sizeof(AVLUsine));
     if (!n) return NULL;
     n->u = u;
-    n->fg = n->fd = NULL;
+    n->fg = NULL;
+    n->fd = NULL;
     n->eq = 0;
     return n;
 }
+
 AVLUsine* rotG_U(AVLUsine *a) {
-    AVLUsine *p = a->fd;
-    int eq_a = a->eq, eq_p = p->eq;
+    AVLUsine *p;
+    int eq_a, eq_p;
+
+    p = a->fd;
+    eq_a = a->eq;
+    eq_p = p->eq;
 
     a->fd = p->fg;
     p->fg = a;
 
-    a->eq = eq_a - 1 - max_int(eq_p, 0);
-    p->eq = eq_p - 1 + min_int(a->eq, 0);
+    a->eq = eq_a - 1 - max2(eq_p, 0);
+    p->eq = eq_p - 1 + min0(a->eq);
     return p;
 }
+
 AVLUsine* rotD_U(AVLUsine *a) {
-    AVLUsine *p = a->fg;
-    int eq_a = a->eq, eq_p = p->eq;
+    AVLUsine *p;
+    int eq_a, eq_p;
+
+    p = a->fg;
+    eq_a = a->eq;
+    eq_p = p->eq;
 
     a->fg = p->fd;
     p->fd = a;
 
-    a->eq = eq_a + 1 - max_int(eq_p, 0);
-    p->eq = eq_p + 1 + max_int(a->eq, 0);
+    a->eq = eq_a + 1 - max0(eq_p);
+    p->eq = eq_p + 1 + max0(a->eq);
     return p;
 }
-AVLUsine* rotGD_U(AVLUsine *a) { a->fd = rotD_U(a->fd); return rotG_U(a); }
-AVLUsine* rotDG_U(AVLUsine *a) { a->fg = rotG_U(a->fg); return rotD_U(a); }
+
+AVLUsine* rotGD_U(AVLUsine *a) {
+    a->fd = rotD_U(a->fd);
+    return rotG_U(a);
+}
+
+AVLUsine* rotDG_U(AVLUsine *a) {
+    a->fg = rotG_U(a->fg);
+    return rotD_U(a);
+}
+
 AVLUsine* equilibrer_U(AVLUsine *a) {
     if (a->eq >= 2) {
         if (a->fd && a->fd->eq >= 0) return rotG_U(a);
@@ -119,17 +174,20 @@ AVLUsine* equilibrer_U(AVLUsine *a) {
 }
 
 AVLUsine* avlU_inserer(AVLUsine *a, UsineDonnees *u, int *h) {
-    /* Insertion AVL (id_usine). h = variation de hauteur. */
-    if (!a) { *h = 1; return avlU_creer(u); }
+    int cmp;
 
-    int cmp = strcmp(u->id_usine, a->u->id_usine);
+    if (!a) {
+        *h = 1;
+        return avlU_creer(u);
+    }
+
+    cmp = strcmp(u->id_usine, a->u->id_usine);
     if (cmp < 0) {
         a->fg = avlU_inserer(a->fg, u, h);
         *h = -(*h);
     } else if (cmp > 0) {
         a->fd = avlU_inserer(a->fd, u, h);
     } else {
-        /* déjà présent : on libère la nouvelle structure */
         free(u);
         *h = 0;
         return a;
@@ -149,8 +207,10 @@ AVLUsine* avlU_inserer(AVLUsine *a, UsineDonnees *u, int *h) {
 }
 
 AVLUsine* avlU_rechercher(AVLUsine *a, const char *id) {
+    int cmp;
+
     if (!a) return NULL;
-    int cmp = strcmp(id, a->u->id_usine);
+    cmp = strcmp(id, a->u->id_usine);
     if (cmp == 0) return a;
     if (cmp < 0) return avlU_rechercher(a->fg, id);
     return avlU_rechercher(a->fd, id);
@@ -164,57 +224,87 @@ void avlU_liberer(AVLUsine *a) {
     free(a);
 }
 
-/* Parcours fd -> noeud -> fg (ordre inverse). */
+/* écriture en ordre alphabétique inverse */
 void avlU_ecrire_inverse(AVLUsine *a, FILE *f, ModeHisto mode) {
+    double max_Mm3, src_Mm3, real_Mm3, Mm3;
+
     if (!a) return;
+
     avlU_ecrire_inverse(a->fd, f, mode);
 
-    double km3 = 0.0;
-    if (mode == HISTO_MAX)  km3 = a->u->capacite_max_km3;
-    if (mode == HISTO_SRC)  km3 = a->u->volume_src_km3;
-    if (mode == HISTO_REAL) km3 = a->u->volume_real_km3;
+    if (mode == HISTO_ALL) {
+        max_Mm3  = a->u->capacite_max_km3 / 1000.0;
+        src_Mm3  = a->u->volume_src_km3   / 1000.0;
+        real_Mm3 = a->u->volume_real_km3  / 1000.0;
+        fprintf(f, "%s;%.6f;%.6f;%.6f\n", a->u->id_usine, max_Mm3, src_Mm3, real_Mm3);
+    } else {
+        Mm3 = 0.0;
+        if (mode == HISTO_MAX)  Mm3 = a->u->capacite_max_km3 / 1000.0;
+        if (mode == HISTO_SRC)  Mm3 = a->u->volume_src_km3   / 1000.0;
+        if (mode == HISTO_REAL) Mm3 = a->u->volume_real_km3  / 1000.0;
 
-    /* sortie demandée en millions de m3 : km3 / 1000 */
-    double Mm3 = km3 / 1000.0;
-    fprintf(f, "%s;%.6f\n", a->u->id_usine, Mm3);
+        fprintf(f, "%s;%.6f\n", a->u->id_usine, Mm3);
+    }
 
     avlU_ecrire_inverse(a->fg, f, mode);
 }
 
 /* ============================================================
-   AVL Noeud (index pour leaks) */
+   AVL Noeud (index leaks)
+   ============================================================ */
+
 AVLNoeud* avlN_creer(Noeud *n) {
     AVLNoeud *x = malloc(sizeof(AVLNoeud));
     if (!x) return NULL;
     x->n = n;
-    x->fg = x->fd = NULL;
+    x->fg = NULL;
+    x->fd = NULL;
     x->eq = 0;
     return x;
 }
+
 AVLNoeud* rotG_N(AVLNoeud *a) {
-    AVLNoeud *p = a->fd;
-    int eq_a = a->eq, eq_p = p->eq;
+    AVLNoeud *p;
+    int eq_a, eq_p;
+
+    p = a->fd;
+    eq_a = a->eq;
+    eq_p = p->eq;
 
     a->fd = p->fg;
     p->fg = a;
 
-    a->eq = eq_a - 1 - max_int(eq_p, 0);
-    p->eq = eq_p - 1 + min_int(a->eq, 0);
+    a->eq = eq_a - 1 - max2(eq_p, 0);
+    p->eq = eq_p - 1 + min0(a->eq);
     return p;
 }
+
 AVLNoeud* rotD_N(AVLNoeud *a) {
-    AVLNoeud *p = a->fg;
-    int eq_a = a->eq, eq_p = p->eq;
+    AVLNoeud *p;
+    int eq_a, eq_p;
+
+    p = a->fg;
+    eq_a = a->eq;
+    eq_p = p->eq;
 
     a->fg = p->fd;
     p->fd = a;
 
-    a->eq = eq_a + 1 - max_int(eq_p, 0);
-    p->eq = eq_p + 1 + max_int(a->eq, 0);
+    a->eq = eq_a + 1 - max0(eq_p);
+    p->eq = eq_p + 1 + max0(a->eq);
     return p;
 }
-AVLNoeud* rotGD_N(AVLNoeud *a) { a->fd = rotD_N(a->fd); return rotG_N(a); }
-AVLNoeud* rotDG_N(AVLNoeud *a) { a->fg = rotG_N(a->fg); return rotD_N(a); }
+
+AVLNoeud* rotGD_N(AVLNoeud *a) {
+    a->fd = rotD_N(a->fd);
+    return rotG_N(a);
+}
+
+AVLNoeud* rotDG_N(AVLNoeud *a) {
+    a->fg = rotG_N(a->fg);
+    return rotD_N(a);
+}
+
 AVLNoeud* equilibrer_N(AVLNoeud *a) {
     if (a->eq >= 2) {
         if (a->fd && a->fd->eq >= 0) return rotG_N(a);
@@ -228,17 +318,20 @@ AVLNoeud* equilibrer_N(AVLNoeud *a) {
 }
 
 AVLNoeud* avlN_inserer(AVLNoeud *a, Noeud *n, int *h) {
-    /* Insertion AVL (id noeud). */
-    if (!a) { *h = 1; return avlN_creer(n); }
+    int cmp;
 
-    int cmp = strcmp(n->id, a->n->id);
+    if (!a) {
+        *h = 1;
+        return avlN_creer(n);
+    }
+
+    cmp = strcmp(n->id, a->n->id);
     if (cmp < 0) {
         a->fg = avlN_inserer(a->fg, n, h);
         *h = -(*h);
     } else if (cmp > 0) {
         a->fd = avlN_inserer(a->fd, n, h);
     } else {
-        /* déjà là : libérer le nouveau noeud */
         free(n);
         *h = 0;
         return a;
@@ -258,17 +351,21 @@ AVLNoeud* avlN_inserer(AVLNoeud *a, Noeud *n, int *h) {
 }
 
 AVLNoeud* avlN_rechercher(AVLNoeud *a, const char *id) {
+    int cmp;
+
     if (!a) return NULL;
-    int cmp = strcmp(id, a->n->id);
+    cmp = strcmp(id, a->n->id);
     if (cmp == 0) return a;
     if (cmp < 0) return avlN_rechercher(a->fg, id);
     return avlN_rechercher(a->fd, id);
 }
+
 void free_enfants(Enfant *e) {
+    Enfant *nxt;
     while (e) {
-        Enfant *n = e->next;
+        nxt = e->next;
         free(e);
-        e = n;
+        e = nxt;
     }
 }
 
@@ -282,42 +379,46 @@ void avlN_liberer(AVLNoeud *a) {
 }
 
 /* ============================================================
-   Graphe aval (leaks)*/
-
-/* Pile utilisée pour la propagation des débits (traiter_leaks). */
-typedef struct {
-    Noeud *n;
-    double debit;
-} StackItem;
+   Graphe aval (leaks)
+   ============================================================ */
 
 Noeud* get_or_create_noeud(AVLNoeud **index, const char *id) {
-    AVLNoeud *found = avlN_rechercher(*index, id);
+    AVLNoeud *found;
+    Noeud *n;
+    int h;
+
+    found = avlN_rechercher(*index, id);
     if (found) return found->n;
 
-    Noeud *n = calloc(1, sizeof(Noeud));
+    n = malloc(sizeof(Noeud));
     if (!n) return NULL;
+
     strncpy(n->id, id, MAX_ID - 1);
     n->id[MAX_ID - 1] = '\0';
     n->enfants = NULL;
     n->deg = 0;
 
-    int h = 0;
+    h = 0;
     *index = avlN_inserer(*index, n, &h);
-        /* On refait une recherche pour récupérer le pointeur stocké. */
+
     found = avlN_rechercher(*index, id);
     if (found) return found->n;
     return NULL;
 }
 
-
 void ajouter_arete(Noeud *parent, Noeud *child, double fuite_pct) {
+    Enfant *e;
+
     if (!parent || !child) return;
-    Enfant *e = malloc(sizeof(Enfant));
+
+    e = malloc(sizeof(Enfant));
     if (!e) return;
+
     e->child = child;
     e->fuite_pct = fuite_pct;
     e->next = parent->enfants;
     parent->enfants = e;
+
     parent->deg += 1;
 }
 
@@ -326,72 +427,103 @@ void liberer_graphe(AVLNoeud *index) {
 }
 
 /* ============================================================
-   Traitement HISTO*/
+   HISTO
+   ============================================================ */
+
 const char* header_histo(ModeHisto mode) {
     if (mode == HISTO_MAX)  return "identifier;max volume (M.m3.year-1)\n";
     if (mode == HISTO_SRC)  return "identifier;source volume (M.m3.year-1)\n";
-    return "identifier;real volume (M.m3.year-1)\n";
+    if (mode == HISTO_REAL) return "identifier;real volume (M.m3.year-1)\n";
+    return "identifier;max;src;real (M.m3.year-1)\n"; /* HISTO_ALL */
 }
 
-/* Lit le CSV et construit l'AVL des usines, puis écrit out_dat. */
 int traiter_histo(const char *chemin_fichier, ModeHisto mode, const char *out_dat) {
-    FILE *in = fopen(chemin_fichier, "r");
+    FILE *in;
+    FILE *out;
+    AVLUsine *arbre;
+    int h;
+    char ligne[MAX_LIGNE];
+
+    in = fopen(chemin_fichier, "r");
     if (!in) {
         fprintf(stderr, "Erreur: impossible d'ouvrir %s\n", chemin_fichier);
         return 10;
     }
 
-    AVLUsine *arbre = NULL;
-    int h = 0;
+    arbre = NULL;
+    h = 0;
 
-    char ligne[MAX_LIGNE];
-    while (fgets(ligne, sizeof(ligne), in)) {
+    while (lire_ligne(in, ligne, MAX_LIGNE)) {
         char *col[5];
+
         if (!split_5_colonnes(ligne, col)) continue;
 
-        /* Colonne #2 = amont (col[1]), #3 = aval (col[2]), #4 = volume (col[3]), #5 = fuite (col[4]) */
+        /* volume en col[3] pour source->usine et pour usine node ; si '-' => ignorer */
         if (est_tiret_ou_vide(col[3])) {
-            /* pas de volume => pas utile pour histo (distribution aval) */
             continue;
         }
 
-        /* CAS USINE: exemple "-;Facility...;-;4749292;-"
-           => aval (col[2]) == "-" et amont (col[1]) = id usine */
-        if (est_tiret_ou_vide(col[2])) {
-            const char *id_usine = col[1];
-            int ok = 0;
-            double cap = atof_safe(col[3], &ok);
+        /* USINE (node) : col[2] = "-" et col[1] = ID usine */
+        if (est_tiret_ou_vide(col[2]) && !est_tiret_ou_vide(col[1])) {
+            const char *id_usine;
+            int ok;
+            double cap_km3;
+            AVLUsine *node;
+
+            id_usine = col[1];
+
+            ok = 0;
+            cap_km3 = atof_safe(col[3], &ok);
             if (!ok) continue;
 
-            AVLUsine *node = avlU_rechercher(arbre, id_usine);
+            node = avlU_rechercher(arbre, id_usine);
             if (!node) {
-                UsineDonnees *u = calloc(1, sizeof(UsineDonnees));
+                UsineDonnees *u = malloc(sizeof(UsineDonnees));
                 if (!u) { fclose(in); avlU_liberer(arbre); return 11; }
-                strncpy(u->id_usine, id_usine, MAX_ID-1);
-                u->capacite_max_km3 = cap;
+
+                memset(u, 0, sizeof(UsineDonnees));
+                strncpy(u->id_usine, id_usine, MAX_ID - 1);
+                u->id_usine[MAX_ID - 1] = '\0';
+                u->capacite_max_km3 = cap_km3;
+
                 arbre = avlU_inserer(arbre, u, &h);
             } else {
-                node->u->capacite_max_km3 = cap;
+                node->u->capacite_max_km3 = cap_km3;
             }
-        } else {
-            /* CAS SOURCE->USINE: aval = usine */
-            const char *id_usine = col[2];
-            int okV = 0;
-            double vol = atof_safe(col[3], &okV);
+            continue;
+        }
+
+        /* SOURCE -> USINE : col[2] = usine ; col[3] = volume ; col[4] = fuite */
+        if (!est_tiret_ou_vide(col[2]) && !est_tiret_ou_vide(col[3])) {
+            const char *id_usine;
+            int okV;
+            double vol;
+            double fuite;
+            int okF;
+            AVLUsine *node;
+
+            id_usine = col[2];
+
+            okV = 0;
+            vol = atof_safe(col[3], &okV);
             if (!okV) continue;
 
-            double fuite = 0.0;
+            fuite = 0.0;
             if (!est_tiret_ou_vide(col[4])) {
-                int okF = 0;
+                okF = 0;
                 fuite = atof_safe(col[4], &okF);
                 if (!okF) fuite = 0.0;
             }
 
-            AVLUsine *node = avlU_rechercher(arbre, id_usine);
+            node = avlU_rechercher(arbre, id_usine);
             if (!node) {
-                UsineDonnees *u = calloc(1, sizeof(UsineDonnees));
+                UsineDonnees *u = malloc(sizeof(UsineDonnees));
                 if (!u) { fclose(in); avlU_liberer(arbre); return 12; }
-                strncpy(u->id_usine, id_usine, MAX_ID-1);
+
+                memset(u, 0, sizeof(UsineDonnees));
+                strncpy(u->id_usine, id_usine, MAX_ID - 1);
+                u->id_usine[MAX_ID - 1] = '\0';
+
                 arbre = avlU_inserer(arbre, u, &h);
                 node = avlU_rechercher(arbre, id_usine);
                 if (!node) { fclose(in); avlU_liberer(arbre); return 13; }
@@ -404,9 +536,9 @@ int traiter_histo(const char *chemin_fichier, ModeHisto mode, const char *out_da
 
     fclose(in);
 
-    FILE *out = fopen(out_dat, "w");
+    out = fopen(out_dat, "w");
     if (!out) {
-        fprintf(stderr, "Erreur: impossible de créer %s\n", out_dat);
+        fprintf(stderr, "Erreur: impossible de créer %s (crée output/)\n", out_dat);
         avlU_liberer(arbre);
         return 20;
     }
@@ -420,178 +552,254 @@ int traiter_histo(const char *chemin_fichier, ModeHisto mode, const char *out_da
 }
 
 /* ============================================================
-   Traitement LEAKS*/
+   LEAKS
+   ============================================================ */
 
-/* 1) calcule volume real (Mm3/an) de l'usine via source->usine
-   2) construit graphe aval (enfants) pour cette usine
-   3) propage débit, somme pertes
-   4) append dans out_dat (création si absent)
-*/
+int fichier_vide_ou_absent(const char *path) {
+    FILE *f;
+    long sz;
+
+    f = fopen(path, "r");
+    if (!f) return 1;
+
+    if (fseek(f, 0, SEEK_END) != 0) {
+        fclose(f);
+        return 1;
+    }
+    sz = ftell(f);
+    fclose(f);
+
+    if (sz <= 0) return 1;
+    return 0;
+}
+
 int traiter_leaks(const char *chemin_fichier, const char *id_usine, const char *out_dat) {
-    /* --- étape 1 : récupérer volume "real" de l'usine (km3) + vérifier existence usine --- */
-    FILE *in = fopen(chemin_fichier, "r");
+    FILE *in;
+    FILE *out;
+    int need_header;
+
+    int usine_trouvee;
+    double real_km3;
+
+    /* phase 1 : existence usine + débit "real" (km3) */
+    in = fopen(chemin_fichier, "r");
     if (!in) {
         fprintf(stderr, "Erreur: impossible d'ouvrir %s\n", chemin_fichier);
         return 30;
     }
 
-    int usine_trouvee = 0;
-    double real_km3 = 0.0;
+    usine_trouvee = 0;
+    real_km3 = 0.0;
 
-    char ligne[MAX_LIGNE];
-    while (fgets(ligne, sizeof(ligne), in)) {
-        char *col[5];
-        if (!split_5_colonnes(ligne, col)) continue;
+    {
+        char ligne[MAX_LIGNE];
+        while (lire_ligne(in, ligne, MAX_LIGNE)) {
+            char *col[5];
 
-        /* USINE line => col[1] = usine et col[2] = "-" */
-        if (est_tiret_ou_vide(col[2]) && !est_tiret_ou_vide(col[1])) {
-            if (strcmp(col[1], id_usine) == 0) {
-                usine_trouvee = 1;
-            }
-            continue;
-        }
+            if (!split_5_colonnes(ligne, col)) continue;
 
-        /* source->usine : col[2] = usine, col[3]=vol, col[4]=fuite */
-        if (!est_tiret_ou_vide(col[2]) && !est_tiret_ou_vide(col[3])) {
-            if (strcmp(col[2], id_usine) == 0) {
-                int okV = 0;
-                double vol = atof_safe(col[3], &okV);
-                if (!okV) continue;
-
-                double fuite = 0.0;
-                if (!est_tiret_ou_vide(col[4])) {
-                    int okF = 0;
-                    fuite = atof_safe(col[4], &okF);
-                    if (!okF) fuite = 0.0;
+            /* ligne USINE (node) : col[1] = usine, col[2] = "-" */
+            if (est_tiret_ou_vide(col[2]) && !est_tiret_ou_vide(col[1])) {
+                if (strcmp(col[1], id_usine) == 0) {
+                    usine_trouvee = 1;
                 }
-                real_km3 += vol * (1.0 - (fuite / 100.0));
+                continue;
+            }
+
+            /* source->usine : col[2] = usine, col[3]=vol, col[4]=fuite */
+            if (!est_tiret_ou_vide(col[2]) && !est_tiret_ou_vide(col[3])) {
+                if (strcmp(col[2], id_usine) == 0) {
+                    int okV;
+                    double vol;
+                    double fuite;
+                    int okF;
+
+                    okV = 0;
+                    vol = atof_safe(col[3], &okV);
+                    if (!okV) continue;
+
+                    fuite = 0.0;
+                    if (!est_tiret_ou_vide(col[4])) {
+                        okF = 0;
+                        fuite = atof_safe(col[4], &okF);
+                        if (!okF) fuite = 0.0;
+                    }
+                    real_km3 += vol * (1.0 - (fuite / 100.0));
+                }
             }
         }
     }
+
     fclose(in);
 
-    /* si l'usine n'est pas dans le fichier, résultat -1 */
-    double pertes_Mm3 = -1.0;
+    need_header = fichier_vide_ou_absent(out_dat);
+
+    /* usine inconnue => écrire -1 */
     if (!usine_trouvee) {
-        FILE *out = fopen(out_dat, "a");
+        out = fopen(out_dat, "a");
         if (!out) {
-            /* si fichier absent/permission, on tente de le créer avec header */
-            out = fopen(out_dat, "w");
-            if (!out) return 31;
-            fputs("identifier;Leak volume (M.m3.year-1)\n", out);
-        } else {
-            /* si c'est un fichier vide, ajouter header */
-            long pos = ftell(out);
-            if (pos == 0) fputs("identifier;Leak volume (M.m3.year-1)\n", out);
+            fprintf(stderr, "Erreur: impossible d'ouvrir %s en écriture\n", out_dat);
+            return 31;
         }
-        fprintf(out, "%s;%.6f\n", id_usine, pertes_Mm3);
+        if (need_header) fputs("identifier;Leak volume (M.m3.year-1)\n", out);
+        fprintf(out, "%s;-1.000000\n", id_usine);
         fclose(out);
         return 0;
     }
 
-    /* --- étape 2 : construire le graphe aval pour cette usine --- */
-    AVLNoeud *index = NULL;
+    /* phase 2 : construire le graphe aval pour cette usine */
+    {
+        AVLNoeud *index;
+        Noeud *racine;
 
-    Noeud *racine = get_or_create_noeud(&index, id_usine);
-    if (!racine) { liberer_graphe(index); return 32; }
+        in = fopen(chemin_fichier, "r");
+        if (!in) return 33;
 
-    in = fopen(chemin_fichier, "r");
-    if (!in) { liberer_graphe(index); return 33; }
+        index = NULL;
 
-    while (fgets(ligne, sizeof(ligne), in)) {
-        char *col[5];
-        if (!split_5_colonnes(ligne, col)) continue;
+        racine = get_or_create_noeud(&index, id_usine);
+        if (!racine) { fclose(in); liberer_graphe(index); return 32; }
 
-                /* Lignes utiles : usine->storage et réseau aval (treated_by == id_usine). */
+        {
+            char ligne[MAX_LIGNE];
 
-        const char *treated_by = col[0];
-        const char *amont = col[1];
-        const char *aval  = col[2];
+            while (lire_ligne(in, ligne, MAX_LIGNE)) {
+                char *col[5];
+                const char *treated_by;
+                const char *amont;
+                const char *aval;
 
-        /* ligne USINE -> STOCKAGE : amont == id_usine et aval commence par "Storage " en général */
-        int est_usine_stockage = (strcmp(amont, id_usine) == 0) && !est_tiret_ou_vide(aval) && !est_tiret_ou_vide(col[4]);
+                int okF;
+                double fuite;
 
-        /* lignes aval : col[0] == id_usine */
-        int est_aval_filtre = (strcmp(treated_by, id_usine) == 0) && !est_tiret_ou_vide(amont) && !est_tiret_ou_vide(aval) && !est_tiret_ou_vide(col[4]);
+                int est_usine_stockage;
+                int est_aval_filtre;
 
-        if (!est_usine_stockage && !est_aval_filtre) continue;
+                Noeud *p;
+                Noeud *c;
 
-        int okF = 0;
-        double fuite = atof_safe(col[4], &okF);
-        if (!okF) fuite = 0.0;
+                if (!split_5_colonnes(ligne, col)) continue;
 
-        Noeud *p = get_or_create_noeud(&index, amont);
-        Noeud *c = get_or_create_noeud(&index, aval);
-        if (!p || !c) { fclose(in); liberer_graphe(index); return 34; }
+                treated_by = col[0];
+                amont = col[1];
+                aval  = col[2];
 
-        ajouter_arete(p, c, fuite);
-    }
-    fclose(in);
+                /* lien direct usine -> stockage : amont=usine, aval!=-, fuite en col[4] */
+                est_usine_stockage = (strcmp(amont, id_usine) == 0)
+                                     && !est_tiret_ou_vide(aval)
+                                     && !est_tiret_ou_vide(col[4]);
 
-    /* --- étape 3 : propagation débit + somme pertes --- */
-    /* débit de départ (Mm3) */
-    double debit0 = real_km3 / 1000.0;
-    size_t cap = 1024, top = 0;
-    StackItem *stack = malloc(cap * sizeof(StackItem));
-    if (!stack) { liberer_graphe(index); return 35; }
+                /* tronçons aval : col[0] = usine traitante */
+                est_aval_filtre = (strcmp(treated_by, id_usine) == 0)
+                                  && !est_tiret_ou_vide(amont)
+                                  && !est_tiret_ou_vide(aval)
+                                  && !est_tiret_ou_vide(col[4]);
 
-    stack[top].n = racine;
-    stack[top].debit = debit0;
-    top++;
+                if (!est_usine_stockage && !est_aval_filtre) continue;
 
-    double pertes = 0.0;
+                okF = 0;
+                fuite = atof_safe(col[4], &okF);
+                if (!okF) fuite = 0.0;
 
-        /* Parcours en profondeur : on partage le débit, on applique les fuites. */
-    while (top > 0) {
-        StackItem it = stack[--top];
-        Noeud *n = it.n;
-        double debit = it.debit;
-
-        if (!n || n->deg <= 0) continue;
-
-        double part = debit / (double)n->deg;
-
-        for (Enfant *e = n->enfants; e; e = e->next) {
-            double f = e->fuite_pct / 100.0;
-            if (f < 0.0) f = 0.0;
-            if (f > 1.0) f = 1.0;
-
-            double perdu = part * f;
-            double restant = part - perdu;
-            pertes += perdu;
-
-            if (restant > 0.0 && e->child && e->child->deg > 0) {
-                if (top >= cap) {
-                    cap *= 2;
-                    StackItem *tmp = realloc(stack, cap * sizeof(StackItem));
-                    if (!tmp) { free(stack); liberer_graphe(index); return 36; }
-                    stack = tmp;
+                p = get_or_create_noeud(&index, amont);
+                c = get_or_create_noeud(&index, aval);
+                if (!p || !c) {
+                    fclose(in);
+                    liberer_graphe(index);
+                    return 34;
                 }
-                stack[top].n = e->child;
-                stack[top].debit = restant;
-                top++;
+
+                ajouter_arete(p, c, fuite);
             }
         }
+
+        fclose(in);
+
+        /* phase 3 : propagation et calcul des pertes */
+        {
+            double debit0;
+            double pertes_Mm3;
+
+            StackItem *stack;
+            size_t cap;
+            size_t top;
+
+            debit0 = real_km3 / 1000.0; /* km3 -> M.m3 */
+            pertes_Mm3 = 0.0;
+
+            cap = 1024;
+            top = 0;
+            stack = malloc(cap * sizeof(StackItem));
+            if (!stack) { liberer_graphe(index); return 35; }
+
+            stack[top].n = racine;
+            stack[top].debit = debit0;
+            top++;
+
+            while (top > 0) {
+                StackItem it;
+                Noeud *n;
+                double debit;
+                double part;
+                Enfant *e;
+
+                top--;
+                it = stack[top];
+                n = it.n;
+                debit = it.debit;
+
+                if (!n || n->deg <= 0) continue;
+
+                part = debit / (double)n->deg;
+
+                e = n->enfants;
+                while (e) {
+                    double f;
+                    double perdu;
+                    double restant;
+
+                    f = e->fuite_pct / 100.0;
+                    if (f < 0.0) f = 0.0;
+                    if (f > 1.0) f = 1.0;
+
+                    perdu = part * f;
+                    restant = part - perdu;
+                    pertes_Mm3 += perdu;
+
+                    if (restant > 0.0 && e->child && e->child->deg > 0) {
+                        if (top >= cap) {
+                            StackItem *tmp;
+                            cap *= 2;
+                            tmp = realloc(stack, cap * sizeof(StackItem));
+                            if (!tmp) {
+                                free(stack);
+                                liberer_graphe(index);
+                                return 36;
+                            }
+                            stack = tmp;
+                        }
+                        stack[top].n = e->child;
+                        stack[top].debit = restant;
+                        top++;
+                    }
+
+                    e = e->next;
+                }
+            }
+
+            free(stack);
+            liberer_graphe(index);
+
+            out = fopen(out_dat, "a");
+            if (!out) {
+                fprintf(stderr, "Erreur: impossible d'ouvrir %s en écriture\n", out_dat);
+                return 40;
+            }
+            if (need_header) fputs("identifier;Leak volume (M.m3.year-1)\n", out);
+            fprintf(out, "%s;%.6f\n", id_usine, pertes_Mm3);
+            fclose(out);
+        }
     }
-
-    free(stack);
-    liberer_graphe(index);
-
-    pertes_Mm3 = pertes;
-
-    /* --- étape 4 : écrire / compléter historique out_dat --- */
-    FILE *out = fopen(out_dat, "a");
-    if (!out) {
-        out = fopen(out_dat, "w");
-        if (!out) return 40;
-        fputs("identifier;Leak volume (M.m3.year-1)\n", out);
-    } else {
-        long pos = ftell(out);
-        if (pos == 0) fputs("identifier;Leak volume (M.m3.year-1)\n", out);
-    }
-
-    fprintf(out, "%s;%.6f\n", id_usine, pertes_Mm3);
-    fclose(out);
 
     return 0;
 }

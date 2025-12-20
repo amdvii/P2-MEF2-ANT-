@@ -3,6 +3,11 @@ CFLAGS = -Wall -Wextra -O2
 OBJ = main.o fonction.o
 EXEC = projet
 
+OUTDIR = output
+TMPDIR = tmp
+
+.PHONY: all clean
+
 all: $(EXEC)
 
 $(EXEC): $(OBJ)
@@ -16,5 +21,4 @@ fonction.o: fonction.c fichier.h
 
 clean:
 	rm -f $(OBJ) $(EXEC)
-	rm -f histo_*.dat histo_*.png leaks.dat
-	rm -rf tmp
+	rm -rf $(OUTDIR) $(TMPDIR)

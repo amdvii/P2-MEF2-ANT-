@@ -6,14 +6,15 @@
 #include <string.h>
 
 /* -------- Constantes -------- */
-#define MAX_LIGNE 2048
+#define MAX_LIGNE 4096
 #define MAX_ID    128
 
 /* -------- Modes histo -------- */
 typedef enum {
-    HISTO_MAX = 0,
-    HISTO_SRC = 1,
-    HISTO_REAL = 2
+    HISTO_MAX  = 0,
+    HISTO_SRC  = 1,
+    HISTO_REAL = 2,
+    HISTO_ALL  = 3   /* BONUS */
 } ModeHisto;
 
 /* -------- Données usine (AVL) -------- */
@@ -53,15 +54,22 @@ typedef struct avl_noeud {
     int eq;
 } AVLNoeud;
 
+/* -------- Stack pour propagation leaks -------- */
+typedef struct {
+    Noeud *n;
+    double debit;
+} StackItem;
+
 /* -------- API principale -------- */
 int traiter_histo(const char *chemin_fichier, ModeHisto mode, const char *out_dat);
 int traiter_leaks(const char *chemin_fichier, const char *id_usine, const char *out_dat);
 
 /* -------- Utilitaires -------- */
 void nettoyer_fin_ligne(char *s);
-int split_5_colonnes(char *ligne, char *col[5]); /* parsing robuste ; avec champs vides */
+int split_5_colonnes(char *ligne, char *col[5]);
 int est_tiret_ou_vide(const char *s);
 double atof_safe(const char *s, int *ok);
+int lire_ligne(FILE *f, char *buf, int taille);
 
 /* -------- AVL usine -------- */
 AVLUsine* avlU_inserer(AVLUsine *a, UsineDonnees *u, int *h);

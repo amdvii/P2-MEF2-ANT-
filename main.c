@@ -1,10 +1,14 @@
 #include "fichier.h"
 
-void usage(const char *prog) {
+static void usage(const char *prog) {
     fprintf(stderr,
         "Usage:\n"
-        "  %s <datafile> histo <max|src|real>\n"
-        "  %s <datafile> leaks \"<ID usine>\"\n",
+        "  %s <datafile> histo <max|src|real|all>\n"
+        "  %s <datafile> leaks \"<ID usine>\"\n"
+        "\n"
+        "Sorties:\n"
+        "  - Les fichiers .dat et .png sont générés dans le dossier 'output/'\n"
+        "    (le script shell.sh crée automatiquement ce dossier).\n",
         prog, prog
     );
 }
@@ -15,7 +19,6 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-        /* argv: datafile, commande, option */
     const char *datafile = argv[1];
     const char *cmd = argv[2];
 
@@ -25,16 +28,25 @@ int main(int argc, char **argv) {
             usage(argv[0]);
             return 2;
         }
-        const char *opt = argv[3];
 
+        const char *opt = argv[3];
         ModeHisto mode;
         const char *out = NULL;
 
-        if (strcmp(opt, "max") == 0) { mode = HISTO_MAX; out = "histo_max.dat"; }
-        else if (strcmp(opt, "src") == 0) { mode = HISTO_SRC; out = "histo_src.dat"; }
-        else if (strcmp(opt, "real") == 0) { mode = HISTO_REAL; out = "histo_real.dat"; }
-        else {
-            fprintf(stderr, "Erreur: option histo invalide (%s). Attendu: max|src|real\n", opt);
+        if (strcmp(opt, "max") == 0) {
+            mode = HISTO_MAX;
+            out = "output/histo_max.dat";
+        } else if (strcmp(opt, "src") == 0) {
+            mode = HISTO_SRC;
+            out = "output/histo_src.dat";
+        } else if (strcmp(opt, "real") == 0) {
+            mode = HISTO_REAL;
+            out = "output/histo_real.dat";
+        } else if (strcmp(opt, "all") == 0) {
+            mode = HISTO_ALL;
+            out = "output/histo_all.dat";
+        } else {
+            fprintf(stderr, "Erreur: option histo invalide (%s). Attendu: max|src|real|all\n", opt);
             return 3;
         }
 
@@ -47,8 +59,7 @@ int main(int argc, char **argv) {
             usage(argv[0]);
             return 4;
         }
-        const char *id_usine = argv[3];
-        return traiter_leaks(datafile, id_usine, "leaks.dat");
+        return traiter_leaks(datafile, argv[3], "output/leaks.dat");
     }
 
     fprintf(stderr, "Erreur: commande inconnue (%s).\n", cmd);
