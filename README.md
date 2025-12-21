@@ -54,15 +54,15 @@ Le script `shell.sh` constitue le point d’entrée principal du projet.
 ```bash
 ./shell.sh c-wildwater_v3.dat histo src
 ```
-Histogramme des valeurs **maximales** :
+- Histogramme des valeurs **maximales** :
 ```bash
 ./shell.sh c-wildwater_v3.dat histo max
 ```
-Histogramme des valeurs **réelles** :
+- Histogramme des valeurs **réelles** :
 ```bash
 ./shell.sh c-wildwater_v3.dat histo real
 ```
-Histogramme **cumulé** (bonus) :
+- Histogramme **cumulé** (bonus) :
 ```bash
 ./shell.sh c-wildwater_v3.dat histo all
 ```
