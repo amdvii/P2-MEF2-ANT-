@@ -40,3 +40,16 @@ Depuis la racine du projet, exécuter successivement les commandes suivantes :
 make clean
 make
 chmod +x shell.sh
+```
+
+---
+
+## Utilisation
+
+Le script `shell.sh` constitue le point d’entrée principal du projet.
+
+### Génération des histogrammes
+
+- Histogramme des valeurs **sources** :
+```bash
+./shell.sh c-wildwater_v3.dat histo src
