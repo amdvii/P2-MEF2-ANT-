@@ -232,10 +232,28 @@ void avlU_ecrire_inverse(AVLUsine *a, FILE *f, ModeHisto mode) {
     avlU_ecrire_inverse(a->fd, f, mode);
 
     if (mode == HISTO_ALL) {
+        /*
+         * HISTO_ALL : 3 valeurs 
+         *  - bleu  : volume réellement fourni (real)
+         *  - rouge : volume perdu après captage (src - real)
+         *  - vert  : volume encore possible à traiter (max - src)
+         */
+        double bleu, rouge, vert;
+
         max_Mm3  = a->u->capacite_max_km3 / 1000.0;
         src_Mm3  = a->u->volume_src_km3   / 1000.0;
         real_Mm3 = a->u->volume_real_km3  / 1000.0;
-        fprintf(f, "%s;%.6f;%.6f;%.6f\n", a->u->id_usine, max_Mm3, src_Mm3, real_Mm3);
+
+        bleu  = real_Mm3;
+        rouge = src_Mm3 - real_Mm3;
+        vert  = max_Mm3 - src_Mm3;
+
+        /* On évite les valeurs négatives dues à des dépassements ou à l'arrondi */
+        if (bleu < 0.0) bleu = 0.0;
+        if (rouge < 0.0) rouge = 0.0;
+        if (vert < 0.0) vert = 0.0;
+
+        fprintf(f, "%s;%.6f;%.6f;%.6f\n", a->u->id_usine, bleu, rouge, vert);
     } else {
         Mm3 = 0.0;
         if (mode == HISTO_MAX)  Mm3 = a->u->capacite_max_km3 / 1000.0;
@@ -424,10 +442,10 @@ void liberer_graphe(AVLNoeud *index) {
 /* -------- HISTO -------- */
 
 const char* entete_histo(ModeHisto mode) {
-    if (mode == HISTO_MAX)  return "identifier;max volume (M.m3)\n";
-    if (mode == HISTO_SRC)  return "identifier;source volume (M.m3)\n";
-    if (mode == HISTO_REAL) return "identifier;real volume (M.m3)\n";
-    return "identifier;max;src;real (M.m3)\n"; /* HISTO_ALL */
+    if (mode == HISTO_MAX)  return "identifier;max volume (M.m3.year-1)\n";
+    if (mode == HISTO_SRC)  return "identifier;source volume (M.m3.year-1)\n";
+    if (mode == HISTO_REAL) return "identifier;real volume (M.m3.year-1)\n";
+    return "identifier;real;lost(src-real);remaining(max-src) (M.m3.year-1)\n";
 }
 
 /* Traite le mode histo :
@@ -545,6 +563,15 @@ int traiter_histo(const char *chemin_fichier, ModeHisto mode, const char *out_da
     avlU_ecrire_inverse(arbre, out, mode);
     fclose(out);
 
+    if (mode != HISTO_MAX) {
+        FILE *out_max = fopen("output/histo_max.dat", "w");
+        if (out_max) {
+            fputs(entete_histo(HISTO_MAX), out_max);
+            avlU_ecrire_inverse(arbre, out_max, HISTO_MAX);
+            fclose(out_max);
+        }
+    }
+
     avlU_liberer(arbre);
     return 0;
 }
@@ -643,7 +670,7 @@ int traiter_leaks(const char *chemin_fichier, const char *id_usine, const char *
             fprintf(stderr, "Erreur: impossible d'ouvrir %s en écriture\n", out_dat);
             return 31;
         }
-        if (need_header) fputs("identifier;Leak volume (M.m3)\n", out);
+        if (need_header) fputs("identifier;Leak volume (M.m3.year-1)\n", out);
         fprintf(out, "%s;-1.000000\n", id_usine);
         fclose(out);
         return 0;
@@ -718,7 +745,6 @@ int traiter_leaks(const char *chemin_fichier, const char *id_usine, const char *
         fclose(in);
 
         /* -------- Phase 3 : propagation et calcul des pertes --------
-           Idée simple :
            - Le débit qui arrive à un noeud est réparti équitablement entre ses sorties (deg).
            - Sur chaque tronçon, on perd une part (fuite_pct%).
            - Le reste continue sa propagation.
@@ -802,7 +828,7 @@ int traiter_leaks(const char *chemin_fichier, const char *id_usine, const char *
                 fprintf(stderr, "Erreur: impossible d'ouvrir %s en écriture\n", out_dat);
                 return 40;
             }
-            if (need_header) fputs("identifier;Leak volume (M.m3)\n", out);
+            if (need_header) fputs("identifier;Leak volume (M.m3.year-1)\n", out);
             fprintf(out, "%s;%.6f\n", id_usine, pertes_Mm3);
             fclose(out);
         }

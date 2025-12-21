@@ -67,7 +67,7 @@ if [ "$CMD" = "histo" ]; then
     exit 1
   fi
 
-  # Sélection top/bot 
+  # Sélection top/bot
   REF="$OUTDIR/histo_max.dat"
   if [ ! -f "$REF" ]; then
     ./projet "$DATAFILE" histo max || exit 1
@@ -77,17 +77,17 @@ if [ "$CMD" = "histo" ]; then
   tail -n +2 "$REF" | awk -F";" '$2 > 0' | sort -t";" -k2 -n | head -n 50 | cut -d";" -f1 > "$TMPDIR/bot50_ids.txt"
 
   if [ "$OPT" = "all" ]; then
-    # id;max;src;real
+    # id;real;lost;remaining  (bleu;rouge;vert)
     awk -F';' 'NR==FNR{ids[++n]=$1; next}
-      FNR>1{max[$1]=$2; src[$1]=$3; real[$1]=$4}
+      FNR>1{c2[$1]=$2; c3[$1]=$3; c4[$1]=$4}
       END{for(i=1;i<=n;i++){id=ids[i]; printf "%s;%s;%s;%s\n", id,
-            (id in max?max[id]:0), (id in src?src[id]:0), (id in real?real[id]:0)}}' \
+            (id in c2?c2[id]:0), (id in c3?c3[id]:0), (id in c4?c4[id]:0)}}' \
       "$TMPDIR/top10_ids.txt" "$DAT" > "$TMPDIR/top10.dat"
 
     awk -F';' 'NR==FNR{ids[++n]=$1; next}
-      FNR>1{max[$1]=$2; src[$1]=$3; real[$1]=$4}
+      FNR>1{c2[$1]=$2; c3[$1]=$3; c4[$1]=$4}
       END{for(i=1;i<=n;i++){id=ids[i]; printf "%s;%s;%s;%s\n", id,
-            (id in max?max[id]:0), (id in src?src[id]:0), (id in real?real[id]:0)}}' \
+            (id in c2?c2[id]:0), (id in c3?c3[id]:0), (id in c4?c4[id]:0)}}' \
       "$TMPDIR/bot50_ids.txt" "$DAT" > "$TMPDIR/bot50.dat"
   else
     # id;val
@@ -107,7 +107,7 @@ if [ "$CMD" = "histo" ]; then
   LOW="$OUTDIR/${BASE}_low.png"
 
   if [ "$OPT" = "all" ]; then
-gnuplot <<EOF
+    gnuplot <<EOF
 set terminal pngcairo size 1500,850 enhanced font 'Verdana,10'
 set output '${HIGH}'
 set datafile separator ";"
@@ -116,15 +116,14 @@ set style data histograms
 set style histogram rowstacked
 set style fill solid 1.0 border -1
 set boxwidth 0.85
-set ylabel "Volume (M.m3)"
+set ylabel "Volume (M.m3.year-1)"
 set xtics rotate by -90
-unset key
-plot '${TMPDIR}/top10.dat' using 4:xtic(1) notitle, \
-     '' using (\$3-\$4) notitle, \
-     '' using (\$2-\$3) notitle
+plot '${TMPDIR}/top10.dat' using 2:xtic(1) title 'real' lc rgb 'blue', \
+     '' using 3 title 'src-real' lc rgb 'red', \
+     '' using 4 title 'max-src' lc rgb 'green'
 EOF
 
-gnuplot <<EOF
+    gnuplot <<EOF
 set terminal pngcairo size 1500,850 enhanced font 'Verdana,9'
 set output '${LOW}'
 set datafile separator ";"
@@ -133,14 +132,12 @@ set style data histograms
 set style histogram rowstacked
 set style fill solid 1.0 border -1
 set boxwidth 0.85
-set ylabel "Volume (M.m3)"
+set ylabel "Volume (M.m3.year-1)"
 set xtics rotate by -90
-unset key
-plot '${TMPDIR}/bot50.dat' using 4:xtic(1) notitle, \
-     '' using (\$3-\$4) notitle, \
-     '' using (\$2-\$3) notitle
+plot '${TMPDIR}/bot50.dat' using 2:xtic(1) title 'real (bleu)' lc rgb 'blue', \
+     '' using 3 title 'src-real (rouge)' lc rgb 'red', \
+     '' using 4 title 'max-src (vert)' lc rgb 'green'
 EOF
-
   else
     gnuplot <<EOF
 set terminal pngcairo size 1400,800 enhanced font 'Verdana,10'
@@ -150,7 +147,7 @@ set title "Plant histogram (${OPT}) - 10 greatest" font ",18"
 set style data histograms
 set style fill solid 1.0 border -1
 set boxwidth 0.85
-set ylabel "Volume (M.m3)"
+set ylabel "Volume (M.m3.year-1)"
 set xtics rotate by -90
 plot '${TMPDIR}/top10.dat' using 2:xtic(1) title '${OPT}'
 EOF
@@ -163,7 +160,7 @@ set title "Plant histogram (${OPT}) - 50 lowest" font ",18"
 set style data histograms
 set style fill solid 1.0 border -1
 set boxwidth 0.85
-set ylabel "Volume (M.m3)"
+set ylabel "Volume (M.m3.year-1)"
 set xtics rotate by -90
 plot '${TMPDIR}/bot50.dat' using 2:xtic(1) title '${OPT}'
 EOF
