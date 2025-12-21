@@ -107,47 +107,50 @@ if [ "$CMD" = "histo" ]; then
   LOW="$OUTDIR/${BASE}_low.png"
 
   if [ "$OPT" = "all" ]; then
-    gnuplot <<EOF
+gnuplot <<EOF
 set terminal pngcairo size 1500,850 enhanced font 'Verdana,10'
 set output '${HIGH}'
 set datafile separator ";"
-set title "Plant histogram (all) - 10 greatest (selected by MAX)" font ",18"
+set title "Plant histogram (all) - 10 greatest" font ",18"
 set style data histograms
 set style histogram rowstacked
 set style fill solid 1.0 border -1
 set boxwidth 0.85
-set ylabel "Volume (M.m3.year-1)"
+set ylabel "Volume (M.m3)"
 set xtics rotate by -90
-plot '${TMPDIR}/top10.dat' using 4:xtic(1) title 'real', \
-     '' using (\$3-\$4) title 'src-real', \
-     '' using (\$2-\$3) title 'max-src'
+unset key
+plot '${TMPDIR}/top10.dat' using 4:xtic(1) notitle, \
+     '' using (\$3-\$4) notitle, \
+     '' using (\$2-\$3) notitle
 EOF
 
-    gnuplot <<EOF
+gnuplot <<EOF
 set terminal pngcairo size 1500,850 enhanced font 'Verdana,9'
 set output '${LOW}'
 set datafile separator ";"
-set title "Plant histogram (all) - 50 lowest (selected by MAX)" font ",18"
+set title "Plant histogram (all) - 50 lowest" font ",18"
 set style data histograms
 set style histogram rowstacked
 set style fill solid 1.0 border -1
 set boxwidth 0.85
-set ylabel "Volume (M.m3.year-1)"
+set ylabel "Volume (M.m3)"
 set xtics rotate by -90
-plot '${TMPDIR}/bot50.dat' using 4:xtic(1) title 'real', \
-     '' using (\$3-\$4) title 'src-real', \
-     '' using (\$2-\$3) title 'max-src'
+unset key
+plot '${TMPDIR}/bot50.dat' using 4:xtic(1) notitle, \
+     '' using (\$3-\$4) notitle, \
+     '' using (\$2-\$3) notitle
 EOF
+
   else
     gnuplot <<EOF
 set terminal pngcairo size 1400,800 enhanced font 'Verdana,10'
 set output '${HIGH}'
 set datafile separator ";"
-set title "Plant histogram (${OPT}) - 10 greatest (selected by MAX)" font ",18"
+set title "Plant histogram (${OPT}) - 10 greatest" font ",18"
 set style data histograms
 set style fill solid 1.0 border -1
 set boxwidth 0.85
-set ylabel "Volume (M.m3.year-1)"
+set ylabel "Volume (M.m3)"
 set xtics rotate by -90
 plot '${TMPDIR}/top10.dat' using 2:xtic(1) title '${OPT}'
 EOF
@@ -156,11 +159,11 @@ EOF
 set terminal pngcairo size 1400,800 enhanced font 'Verdana,9'
 set output '${LOW}'
 set datafile separator ";"
-set title "Plant histogram (${OPT}) - 50 lowest (selected by MAX)" font ",18"
+set title "Plant histogram (${OPT}) - 50 lowest" font ",18"
 set style data histograms
 set style fill solid 1.0 border -1
 set boxwidth 0.85
-set ylabel "Volume (M.m3.year-1)"
+set ylabel "Volume (M.m3)"
 set xtics rotate by -90
 plot '${TMPDIR}/bot50.dat' using 2:xtic(1) title '${OPT}'
 EOF
