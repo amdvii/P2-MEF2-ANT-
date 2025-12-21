@@ -76,5 +76,5 @@ Permet d’obtenir les informations de fuite associées à une usine précise.
 ```
 Exemple d’utilisation :
 ```bash 
-shell.sh c-wildwater_v3.dat leaks "Unit #NM000000T"
+./shell.sh c-wildwater_v3.dat leaks "Unit #NM000000T"
 ```
