@@ -596,6 +596,32 @@ int fichier_vide_ou_absent(const char *path) {
     return 0;
 }
 
+/* Construit le chemin du fichier bonus (dans le même dossier que out_dat). */
+void construire_chemin_leaks_bonus(const char *out_dat, char *out_bonus, int taille) {
+    const char *slash;
+    int dirlen;
+
+    if (!out_bonus || taille <= 0) return;
+
+    /* Par défaut (si out_dat n'a pas de dossier) */
+    strncpy(out_bonus, "leaks_max_segment.dat", (size_t)taille - 1);
+    out_bonus[taille - 1] = '\0';
+
+    if (!out_dat) return;
+
+    slash = strrchr(out_dat, '/');
+    if (!slash) return;
+
+    dirlen = (int)(slash - out_dat) + 1; /* inclut le '/' */
+    if (dirlen <= 0) return;
+    if (dirlen >= taille) dirlen = taille - 1;
+
+    memcpy(out_bonus, out_dat, (size_t)dirlen);
+    out_bonus[dirlen] = '\0';
+
+    strncat(out_bonus, "leaks_max_segment.dat", (size_t)taille - (size_t)dirlen - 1);
+}
+
 /* Traite la commande leaks :
    - Vérifie que l'usine existe
    - Calcule le débit "real" arrivant à l'usine
@@ -606,6 +632,11 @@ int traiter_leaks(const char *chemin_fichier, const char *id_usine, const char *
     FILE *in;
     FILE *out;
     int need_header;
+
+
+    /* -------- Bonus : tronçon avec pertes max (volume absolu) -------- */
+    char out_bonus[512];
+    int need_header_bonus;
 
     int usine_trouvee;
     double real_km3;
@@ -663,6 +694,10 @@ int traiter_leaks(const char *chemin_fichier, const char *id_usine, const char *
 
     need_header = fichier_vide_ou_absent(out_dat);
 
+
+    construire_chemin_leaks_bonus(out_dat, out_bonus, (int)sizeof(out_bonus));
+    need_header_bonus = fichier_vide_ou_absent(out_bonus);
+
     /* usine inconnue => écrire -1 */
     if (!usine_trouvee) {
         out = fopen(out_dat, "a");
@@ -673,6 +708,17 @@ int traiter_leaks(const char *chemin_fichier, const char *id_usine, const char *
         if (need_header) fputs("identifier;Leak volume (M.m3.year-1)\n", out);
         fprintf(out, "%s;-1.000000\n", id_usine);
         fclose(out);
+
+
+        /* fichier bonus : mêmes règles (-1 si usine inconnue) */
+        {
+            FILE *outB = fopen(out_bonus, "a");
+            if (outB) {
+                if (need_header_bonus) fputs("identifier;Upstream;Downstream;Max leak volume (M.m3.year-1)\n", outB);
+                fprintf(outB, "%s;-;-;-1.000000\n", id_usine);
+                fclose(outB);
+            }
+        }
         return 0;
     }
 
@@ -753,12 +799,23 @@ int traiter_leaks(const char *chemin_fichier, const char *id_usine, const char *
             double debit0;
             double pertes_Mm3;
 
+
+            /* Bonus : suivi du tronçon qui perd le plus (en volume absolu) */
+            double max_perdu;
+            char max_amont[MAX_ID];
+            char max_aval[MAX_ID];
+
             ElementPile *pile;
             int cap;
             int top;
 
             debit0 = real_km3 / 1000.0; /* km3 -> M.m3 */
             pertes_Mm3 = 0.0;
+
+
+            max_perdu = -1.0;
+            strcpy(max_amont, "-");
+            strcpy(max_aval, "-");
 
             cap = 1024;
             top = 0;
@@ -799,6 +856,24 @@ int traiter_leaks(const char *chemin_fichier, const char *id_usine, const char *
                     restant = part - perdu;
                     pertes_Mm3 += perdu;
 
+
+                    /* Bonus : conserver le max */
+                    if (perdu > max_perdu) {
+                        max_perdu = perdu;
+
+                        strncpy(max_amont, n->id, MAX_ID - 1);
+                        max_amont[MAX_ID - 1] = '\0';
+
+                        if (e->child) {
+                            strncpy(max_aval, e->child->id, MAX_ID - 1);
+                            max_aval[MAX_ID - 1] = '\0';
+                        } else {
+                            strcpy(max_aval, "-");
+                        }
+                    }
+
+
+
                     if (restant > 0.0 && e->child && e->child->deg > 0) {
                         if (top >= cap) {
                             ElementPile *tmp;
@@ -831,6 +906,23 @@ int traiter_leaks(const char *chemin_fichier, const char *id_usine, const char *
             if (need_header) fputs("identifier;Leak volume (M.m3.year-1)\n", out);
             fprintf(out, "%s;%.6f\n", id_usine, pertes_Mm3);
             fclose(out);
+
+
+            /* fichier bonus : tronçon qui perd le plus */
+            {
+                FILE *outB = fopen(out_bonus, "a");
+                if (outB) {
+                    if (need_header_bonus) fputs("identifier;Upstream;Downstream;Max leak volume (M.m3.year-1)\n", outB);
+
+                    /* si aucun tronçon (deg=0 partout), max_perdu peut rester à -1 */
+                    if (max_perdu < 0.0) {
+                        fprintf(outB, "%s;-;-;0.000000\n", id_usine);
+                    } else {
+                        fprintf(outB, "%s;%s;%s;%.6f\n", id_usine, max_amont, max_aval, max_perdu);
+                    }
+                    fclose(outB);
+                }
+            }
         }
     }
 
