@@ -1,8 +1,8 @@
 #include "fichier.h"
 
-/* -------- Utilitaires -------- */
+// les fcts de base
 
-/* Supprime \n / \r en fin de ligne. */
+// Pr sup les \n / \r en fin de ligne
 void nettoyer_fin_ligne(char *s) {
     int n;
 
@@ -23,7 +23,7 @@ int est_tiret_ou_vide(const char *s) {
 }
 
 
-/* Convertit une chaîne en double (retourne ok=0 si invalide). */
+// Convertit une chaîne en double (retourne ok=0 si invalide)
 double atof_safe(const char *s, int *ok) {
     char *end;
     double v;
@@ -43,8 +43,7 @@ double atof_safe(const char *s, int *ok) {
     return v;
 }
 
-/* Découpe une ligne en 5 colonnes séparées par ';'.
-   (On remplace les ';' par '\0' directement dans la chaîne.) */
+// Pour découper une ligne en 5 colonnes séparées par ';'.
 int split_5_colonnes(char *ligne, char *col[5]) {
     int i;
     int c;
@@ -72,8 +71,8 @@ int split_5_colonnes(char *ligne, char *col[5]) {
     return 1;
 }
 
-/* Lit une ligne avec fgets.
-   Si la ligne dépasse le buffer, on purge le reste jusqu'au '\n'. */
+// Lit une ligne avec fgets.
+//Si la ligne dépasse le buff, on tej le reste jusqu'au '\n'. 
 int lire_ligne(FILE *f, char *buf, int taille) {
     int ch;
     int len;
@@ -89,7 +88,7 @@ int lire_ligne(FILE *f, char *buf, int taille) {
     return 1;
 }
 
-/* -------- Fonctions AVL (utilitaires) -------- */
+// Fonctions AVL (utilitaires) 
 
 int max2(int a, int b) {
     if (a > b) return a;
@@ -106,7 +105,7 @@ int min0(int x) {
     return 0;
 }
 
-/* -------- AVL Usine (tri par id) -------- */
+//AVL Usine (tri par id)
 
 AVLUsine* avlU_creer(UsineDonnees *u) {
     AVLUsine *n = malloc(sizeof(AVLUsine));
@@ -180,7 +179,7 @@ AVLUsine* avlU_inserer(AVLUsine *a, UsineDonnees *u, int *h, int *err) {
     if (!a) {
         AVLUsine *nn = avlU_creer(u);
         if (!nn) {
-            /* Échec d'allocation : on évite une fuite */
+            // Échec d'allocation : on évite une fuite
             free(u);
             *h = 0;
             return NULL;
@@ -251,7 +250,7 @@ void avlU_liberer(AVLUsine *a) {
     free(a);
 }
 
-/* écriture en ordre alphabétique inverse */
+// écriture dans ordre alphabétique inverse 
 void avlU_ecrire_inverse(AVLUsine *a, FILE *f, ModeHisto mode) {
     double max_Mm3, src_Mm3, real_Mm3, Mm3;
 
@@ -261,10 +260,10 @@ void avlU_ecrire_inverse(AVLUsine *a, FILE *f, ModeHisto mode) {
 
     if (mode == HISTO_ALL) {
         /*
-         * HISTO_ALL : 3 valeurs 
-         *  - bleu  : volume réellement fourni (real)
-         *  - rouge : volume perdu après captage (src - real)
-         *  - vert  : volume encore possible à traiter (max - src)
+          HISTO_ALL : 3 valeurs 
+         - bleu  : volume réellement fourni (real)
+          - rouge : volume perdu après captage (src - real)
+         - vert  : volume encore possible à traiter (max - src)
          */
         double bleu, rouge, vert;
 
@@ -276,7 +275,7 @@ void avlU_ecrire_inverse(AVLUsine *a, FILE *f, ModeHisto mode) {
         rouge = src_Mm3 - real_Mm3;
         vert  = max_Mm3 - src_Mm3;
 
-        /* On évite les valeurs négatives dues à des dépassements ou à l'arrondi */
+        // On évite les valeurs négatives qui sont à cause des dépassements ou à l'arrondi 
         if (bleu < 0.0) bleu = 0.0;
         if (rouge < 0.0) rouge = 0.0;
         if (vert < 0.0) vert = 0.0;
@@ -294,7 +293,7 @@ void avlU_ecrire_inverse(AVLUsine *a, FILE *f, ModeHisto mode) {
     avlU_ecrire_inverse(a->fg, f, mode);
 }
 
-/* -------- AVL Noeud (index leaks) -------- */
+// AVL LEAKS
 
 AVLNoeud* avlN_creer(Noeud *n) {
     AVLNoeud *x = malloc(sizeof(AVLNoeud));
@@ -450,7 +449,7 @@ void avlN_liberer(AVLNoeud *a) {
     free(a);
 }
 
-/* -------- Graphe aval (leaks) -------- */
+// Graph aval pr LEAKS
 
 Noeud* obtenir_ou_creer_noeud(AVLNoeud **index, const char *id) {
     AVLNoeud *found;
@@ -473,7 +472,7 @@ Noeud* obtenir_ou_creer_noeud(AVLNoeud **index, const char *id) {
     h = 0;
     newroot = avlN_inserer(*index, n, &h, &err);
     if (err) {
-        /* avlN_inserer a déjà libéré n en cas d'échec */
+        // avlN_inserer a déjà libéré n en cas d'échec 
         return NULL;
     }
     *index = newroot;
@@ -502,7 +501,7 @@ void liberer_graphe(AVLNoeud *index) {
     avlN_liberer(index);
 }
 
-/* -------- HISTO -------- */
+//Partie Histo
 
 const char* entete_histo(ModeHisto mode) {
     if (mode == HISTO_MAX)  return "identifier;max volume (M.m3.year-1)\n";
@@ -538,12 +537,12 @@ char ligne[MAX_LIGNE];
 
         if (!split_5_colonnes(ligne, col)) continue;
 
-        /* volume en col[3] pour source->usine et pour usine node ; si '-' => ignorer */
+        // volume en col[3] pour source->usine et pour usine node ; si '-' => ignorer
         if (est_tiret_ou_vide(col[3])) {
             continue;
         }
 
-        /* USINE (node) : col[2] = "-" et col[1] = ID usine */
+        // USINE (node) : col[2] = "-" et col[1] = ID usine 
         if (est_tiret_ou_vide(col[2]) && !est_tiret_ou_vide(col[1])) {
             const char *id_usine;
             int ok;
@@ -587,7 +586,7 @@ char ligne[MAX_LIGNE];
             continue;
         }
 
-        /* SOURCE -> USINE : col[2] = usine ; col[3] = volume ; col[4] = fuite */
+        // SOURCE -> USINE : col 2 = usine ; col3= volume ; col 4 = fuite 
         if (!est_tiret_ou_vide(col[2]) && !est_tiret_ou_vide(col[3])) {
             const char *id_usine;
             int okV;
@@ -673,7 +672,7 @@ char ligne[MAX_LIGNE];
     return 0;
 }
 
-/* -------- LEAKS -------- */
+// Partie LEAKS
 
 int fichier_vide_ou_absent(const char *path) {
     FILE *f;
@@ -693,14 +692,14 @@ int fichier_vide_ou_absent(const char *path) {
     return 0;
 }
 
-/* Construit le chemin du fichier bonus (dans le même dossier que out_dat). */
+// Construit le chemin du fichier bonus (dans le même dossier que out_dat)
 void construire_chemin_leaks_bonus(const char *out_dat, char *out_bonus, int taille) {
     const char *slash;
     int dirlen;
 
     if (!out_bonus || taille <= 0) return;
 
-    /* Par défaut (si out_dat n'a pas de dossier) */
+    // Par défaut (si out_dat n'a pas de dossier)
     strncpy(out_bonus, "leaks_max_segment.dat", (size_t)taille - 1);
     out_bonus[taille - 1] = '\0';
 
@@ -709,7 +708,7 @@ void construire_chemin_leaks_bonus(const char *out_dat, char *out_bonus, int tai
     slash = strrchr(out_dat, '/');
     if (!slash) return;
 
-    dirlen = (int)(slash - out_dat) + 1; /* inclut le '/' */
+    dirlen = (int)(slash - out_dat) + 1; // inclut le '/' 
     if (dirlen <= 0) return;
     if (dirlen >= taille) dirlen = taille - 1;
 
@@ -719,25 +718,25 @@ void construire_chemin_leaks_bonus(const char *out_dat, char *out_bonus, int tai
     strncat(out_bonus, "leaks_max_segment.dat", (size_t)taille - (size_t)dirlen - 1);
 }
 
-/* Traite la commande leaks :
-   - Vérifie que l'usine existe
-   - Calcule le débit "real" arrivant à l'usine
-   - Construit le graphe aval (filtré sur l'usine)
-   - Propage le débit et additionne les pertes
-*/
+// Traite la commande leaks :
+   //Vérif que l'usine existe
+   // Calcule le débit "real" arrivant à l'usine
+   // Construit le graphe aval (filtré sur l'usine)
+   //Propage le débit et additionne les pertes
+
 int traiter_leaks(const char *chemin_fichier, const char *id_usine, const char *out_dat) {
     FILE *in;
     FILE *out;
     int need_header;
 
 
-    /* -------- Bonus : tronçon avec pertes max (volume absolu) -------- */
+    //Bonus : tronçon avec pertes max
     char out_bonus[512];
     int need_header_bonus;
 
     int usine_trouvee;
     double real_km3;
-    /* -------- Phase 1 : existence usine + débit "real" (km3) -------- */
+    //Phase 1 : existence usine + débit "real" (km3)
     in = fopen(chemin_fichier, "r");
     if (!in) {
         fprintf(stderr, "Erreur: impossible d'ouvrir %s\n", chemin_fichier);
@@ -754,7 +753,7 @@ int traiter_leaks(const char *chemin_fichier, const char *id_usine, const char *
 
             if (!split_5_colonnes(ligne, col)) continue;
 
-            /* ligne USINE (node) : col[1] = usine, col[2] = "-" */
+            // ligne USINE (node) : col 1 = usine, col2 = "-" 
             if (est_tiret_ou_vide(col[2]) && !est_tiret_ou_vide(col[1])) {
                 if (strcmp(col[1], id_usine) == 0) {
                     usine_trouvee = 1;
@@ -762,7 +761,7 @@ int traiter_leaks(const char *chemin_fichier, const char *id_usine, const char *
                 continue;
             }
 
-            /* source->usine : col[2] = usine, col[3]=vol, col[4]=fuite */
+            // source->usine : col2 = usine, col[3]=vol, col 4=fuite 
             if (!est_tiret_ou_vide(col[2]) && !est_tiret_ou_vide(col[3])) {
                 if (strcmp(col[2], id_usine) == 0) {
                     int okV;
@@ -794,7 +793,7 @@ int traiter_leaks(const char *chemin_fichier, const char *id_usine, const char *
     construire_chemin_leaks_bonus(out_dat, out_bonus, (int)sizeof(out_bonus));
     need_header_bonus = fichier_vide_ou_absent(out_bonus);
 
-    /* usine inconnue => écrire -1 */
+    // usine inconnue => écrire -1 
     if (!usine_trouvee) {
         out = fopen(out_dat, "a");
         if (!out) {
@@ -806,7 +805,7 @@ int traiter_leaks(const char *chemin_fichier, const char *id_usine, const char *
         fclose(out);
 
 
-        /* fichier bonus : mêmes règles (-1 si usine inconnue) */
+        // fichier bonus : mêmes règles (-1 si c une usine inconnue)
         {
             FILE *outB = fopen(out_bonus, "a");
             if (outB) {
@@ -818,7 +817,7 @@ int traiter_leaks(const char *chemin_fichier, const char *id_usine, const char *
         return 0;
     }
 
-    /* -------- Phase 2 : construire le graphe aval pour cette usine -------- */
+    //Phase 2 : construire le graphe aval pour cette usine 
     {
         AVLNoeud *index;
         Noeud *racine;
@@ -863,12 +862,12 @@ int traiter_leaks(const char *chemin_fichier, const char *id_usine, const char *
                 amont = col[1];
                 aval  = col[2];
 
-                /* lien direct usine -> stockage : amont=usine, aval!=-, fuite en col[4] */
+                // lien direct usine -> stockage : amont=usine et aval!=- et fuite en colone 4 
                 est_usine_stockage = (strcmp(amont, id_usine) == 0)
                                      && !est_tiret_ou_vide(aval)
                                      && !est_tiret_ou_vide(col[4]);
 
-                /* tronçons aval : col[0] = usine traitante */
+                // tronçons aval : col[0] = usine traitante 
                 est_aval_filtre = (strcmp(usine_traitante, id_usine) == 0)
                                   && !est_tiret_ou_vide(amont)
                                   && !est_tiret_ou_vide(aval)
@@ -895,17 +894,13 @@ int traiter_leaks(const char *chemin_fichier, const char *id_usine, const char *
 
         fclose(in);
 
-        /* -------- Phase 3 : propagation et calcul des pertes --------
-           - Le débit qui arrive à un noeud est réparti équitablement entre ses sorties (deg).
-           - Sur chaque tronçon, on perd une part (fuite_pct%).
-           - Le reste continue sa propagation.
-        */
+        // Phase 3 : propagation et calcul des pertes
         {
             double debit0;
             double pertes_Mm3;
 
 
-            /* Bonus : suivi du tronçon qui perd le plus (en volume absolu) */
+            //pr le Bonus suivi du tronçon qui perd le plus (en volume absolu)
             double max_perdu;
             char max_amont[MAX_ID];
             char max_aval[MAX_ID];
@@ -914,7 +909,7 @@ int traiter_leaks(const char *chemin_fichier, const char *id_usine, const char *
             int cap;
             int top;
 
-            debit0 = real_km3 / 1000.0; /* km3 -> M.m3 */
+            debit0 = real_km3 / 1000.0; // conv de km3 -> M.m3 
             pertes_Mm3 = 0.0;
 
 
@@ -966,7 +961,7 @@ int traiter_leaks(const char *chemin_fichier, const char *id_usine, const char *
                     pertes_Mm3 += perdu;
 
 
-                    /* Bonus : conserver le max */
+                    // Bonus c'es pour conserver le max 
                     if (perdu > max_perdu) {
                         max_perdu = perdu;
 
@@ -1018,13 +1013,13 @@ int traiter_leaks(const char *chemin_fichier, const char *id_usine, const char *
             fclose(out);
 
 
-            /* fichier bonus : tronçon qui perd le plus */
+            // fichier bonus : tronçon qui perd le plus
             {
                 FILE *outB = fopen(out_bonus, "a");
                 if (outB) {
                     if (need_header_bonus) fputs("identifier;Upstream;Downstream;Max leak volume (M.m3.year-1)\n", outB);
 
-                    /* si aucun tronçon (deg=0 partout), max_perdu peut rester à -1 */
+                    // si aucun tronçon (deg=0 partout), max_perdu peut rester à -1 
                     if (max_perdu < 0.0) {
                         fprintf(outB, "%s;-;-;0.000000\n", id_usine);
                     } else {

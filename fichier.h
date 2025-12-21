@@ -5,16 +5,16 @@
 #include <stdlib.h>
 #include <string.h>
 
-/* -------- Constantes -------- */
+//Constantes
 #define MAX_LIGNE 4096
 #define MAX_ID    128
 
-/* -------- Modes histo -------- */
+//tt les histos
 typedef enum {
     HISTO_MAX  = 0,
     HISTO_SRC  = 1,
     HISTO_REAL = 2,
-    HISTO_ALL  = 3   /* BONUS */
+    HISTO_ALL  = 3   //BONUS
 } ModeHisto;
 
 /* -------- Données usine (AVL) --------
@@ -25,9 +25,9 @@ typedef enum {
  */
 typedef struct {
     char id_usine[MAX_ID];
-    double capacite_max_km3;   /* col 4 des lignes USINE (en milliers de m3/an) */
-    double volume_src_km3;     /* somme des captages (source->usine) en milliers de m3/an */
-    double volume_real_km3;    /* somme pondérée : src*(1 - fuite%) en milliers de m3/an */
+    double capacite_max_km3;  // colone 4 des lignes USINE (en milliers de m3/an)
+    double volume_src_km3;  // somme des captages (source->usine) en milliers de m3/an
+    double volume_real_km3;// somme pondérée : src*(1 - fuite%) en milliers de m3/an 
 } UsineDonnees;
 
 typedef struct avl_usine {
@@ -37,21 +37,19 @@ typedef struct avl_usine {
     int eq;
 } AVLUsine;
 
-/* -------- Graphe aval (leaks) --------
- * On construit un graphe orienté amont -> aval avec un taux de fuite par arête.
- */
+//graph de leaks
 typedef struct Noeud Noeud;
 
 typedef struct Enfant {
-    Noeud *child;              /* noeud aval */
-    double fuite_pct;          /* pourcentage de fuites sur le tronçon */
+    Noeud *child;    // noeud aval 
+    double fuite_pct;  // pourcentage de fuites sur le tronçon 
     struct Enfant *next;
 } Enfant;
 
 struct Noeud {
     char id[MAX_ID];
     Enfant *enfants;
-    int deg;                   /* nombre de sorties (enfants) */
+    int deg; // nombre de sorties (les enfants)
 };
 
 typedef struct avl_noeud {
@@ -61,19 +59,17 @@ typedef struct avl_noeud {
     int eq;
 } AVLNoeud;
 
-/* -------- Pile (propagation leaks) --------
- * On propage un débit dans le graphe : chaque élément contient un noeud + le débit qui arrive.
- */
+//Pile pour les leaks
 typedef struct {
     Noeud *n;
     double debit;
 } ElementPile;
 
-/* -------- API principale -------- */
+//le API principale
 int traiter_histo(const char *chemin_fichier, ModeHisto mode, const char *out_dat);
 int traiter_leaks(const char *chemin_fichier, const char *id_usine, const char *out_dat);
 
-/* -------- Utilitaires -------- */
+// les fcts de base
 void nettoyer_fin_ligne(char *s);
 int split_5_colonnes(char *ligne, char *col[5]);
 int est_tiret_ou_vide(const char *s);
@@ -83,7 +79,7 @@ int max2(int a, int b);
 int max0(int x);
 int min0(int x);
 
-/* -------- AVL usine -------- */
+// les AVL pour les usines
 AVLUsine* avlU_creer(UsineDonnees *u);
 AVLUsine* rotG_U(AVLUsine *a);
 AVLUsine* rotD_U(AVLUsine *a);
@@ -95,7 +91,7 @@ AVLUsine* avlU_rechercher(AVLUsine *a, const char *id);
 void avlU_liberer(AVLUsine *a);
 void avlU_ecrire_inverse(AVLUsine *a, FILE *f, ModeHisto mode);
 
-/* -------- AVL noeud -------- */
+//LES AVL noeuds
 AVLNoeud* avlN_creer(Noeud *n);
 AVLNoeud* rotG_N(AVLNoeud *a);
 AVLNoeud* rotD_N(AVLNoeud *a);
@@ -107,15 +103,15 @@ AVLNoeud* avlN_rechercher(AVLNoeud *a, const char *id);
 void liberer_enfants(Enfant *e);
 void avlN_liberer(AVLNoeud *a);
 
-/* -------- Graphe aval -------- */
+//Graph aval
 Noeud* obtenir_ou_creer_noeud(AVLNoeud **index, const char *id);
 void ajouter_arete(Noeud *parent, Noeud *child, double fuite_pct);
 void liberer_graphe(AVLNoeud *index);
 
-/* -------- HISTO -------- */
+//Histo
 const char* entete_histo(ModeHisto mode);
 
-/* -------- LEAKS -------- */
+// Leaks
 int fichier_vide_ou_absent(const char *path);
 void construire_chemin_leaks_bonus(const char *out_dat, char *out_bonus, int taille);
 

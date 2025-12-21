@@ -1,6 +1,6 @@
 #include "fichier.h"
 
-/* -------- Aide / usage -------- */
+// aide/usage
 void afficher_usage(const char *nom_prog) {
     printf("Usage:\n");
     printf("  %s <datafile> histo <max|src|real|all>\n", nom_prog);
@@ -12,19 +12,19 @@ void afficher_usage(const char *nom_prog) {
 }
 
 int main(int argc, char **argv) {
-    /* -------- Vérification des arguments -------- */
+    // vérif des args
     if (argc < 3) {
         afficher_usage(argv[0]);
         return 1;
     }
 
-    /* -------- Arguments communs -------- */
+    //Arguments communs 
     const char *fichier_donnees = argv[1];
     const char *commande = argv[2];
 
-    /* -------- Commande : histo -------- */
+    //les commandes pr les histos
     if (strcmp(commande, "histo") == 0) {
-        /* histo attend une option en plus : max|src|real|all */
+        // histo attend une option en plus : max|src|real|all 
         if (argc != 4) {
             fprintf(stderr, "Erreur: commande histo incomplète ou arguments en trop.\n");
             afficher_usage(argv[0]);
@@ -35,7 +35,7 @@ int main(int argc, char **argv) {
         ModeHisto mode;
         const char *fichier_sortie = NULL;
 
-        /* Associer l'option (texte) au mode (enum) + au fichier de sortie */
+        // Associer l'option (texte) au mode (enum) + au fichier de sortie 
         if (strcmp(option, "max") == 0) {
             mode = HISTO_MAX;
             fichier_sortie = "output/histo_max.dat";
@@ -58,9 +58,9 @@ int main(int argc, char **argv) {
         return traiter_histo(fichier_donnees, mode, fichier_sortie);
     }
 
-    /* -------- Commande : leaks -------- */
+    // Commande pr les leaks
     if (strcmp(commande, "leaks") == 0) {
-        /* leaks attend un identifiant d'usine en plus */
+        // leaks attend un identifiant d'usine en plus
         if (argc != 4) {
             fprintf(stderr, "Erreur: commande leaks incomplète ou arguments en trop.\n");
             afficher_usage(argv[0]);
@@ -70,7 +70,7 @@ int main(int argc, char **argv) {
         return traiter_leaks(fichier_donnees, argv[3], "output/leaks.dat");
     }
 
-    /* -------- Commande inconnue -------- */
+    // pr gérer les commandes inconnues
     fprintf(stderr, "Erreur: commande inconnue (%s).\n", commande);
     afficher_usage(argv[0]);
     return 5;
