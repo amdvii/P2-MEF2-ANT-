@@ -1,8 +1,7 @@
 # Projet WildWater P2-MEF2-ANT
 
-## Auteurs
 
-Projet réalisé en groupe par :
+## Projet réalisé en groupe par :
 - Ahmed EISH
 - Naim MOHAMMED
 - Tarek ITIM  
