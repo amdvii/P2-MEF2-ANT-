@@ -66,3 +66,15 @@ Histogramme **cumulé** (bonus) :
 ```bash
 ./shell.sh c-wildwater_v3.dat histo all
 ```
+
+### Recherche des fuites (leaks)
+
+Permet d’obtenir les informations de fuite associées à une usine précise.
+
+```bash
+./shell.sh c-wildwater_v3.dat leaks "<ID usine>"
+```
+Exemple d’utilisation :
+```bash 
+shell.sh c-wildwater_v3.dat leaks "Unit #NM000000T"
+```
