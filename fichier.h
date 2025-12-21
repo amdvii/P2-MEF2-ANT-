@@ -79,21 +79,44 @@ int split_5_colonnes(char *ligne, char *col[5]);
 int est_tiret_ou_vide(const char *s);
 double atof_safe(const char *s, int *ok);
 int lire_ligne(FILE *f, char *buf, int taille);
+int max2(int a, int b);
+int max0(int x);
+int min0(int x);
 
 /* -------- AVL usine -------- */
-AVLUsine* avlU_inserer(AVLUsine *a, UsineDonnees *u, int *h);
+AVLUsine* avlU_creer(UsineDonnees *u);
+AVLUsine* rotG_U(AVLUsine *a);
+AVLUsine* rotD_U(AVLUsine *a);
+AVLUsine* rotGD_U(AVLUsine *a);
+AVLUsine* rotDG_U(AVLUsine *a);
+AVLUsine* equilibrer_U(AVLUsine *a);
+AVLUsine* avlU_inserer(AVLUsine *a, UsineDonnees *u, int *h, int *err);
 AVLUsine* avlU_rechercher(AVLUsine *a, const char *id);
 void avlU_liberer(AVLUsine *a);
 void avlU_ecrire_inverse(AVLUsine *a, FILE *f, ModeHisto mode);
 
 /* -------- AVL noeud -------- */
-AVLNoeud* avlN_inserer(AVLNoeud *a, Noeud *n, int *h);
+AVLNoeud* avlN_creer(Noeud *n);
+AVLNoeud* rotG_N(AVLNoeud *a);
+AVLNoeud* rotD_N(AVLNoeud *a);
+AVLNoeud* rotGD_N(AVLNoeud *a);
+AVLNoeud* rotDG_N(AVLNoeud *a);
+AVLNoeud* equilibrer_N(AVLNoeud *a);
+AVLNoeud* avlN_inserer(AVLNoeud *a, Noeud *n, int *h, int *err);
 AVLNoeud* avlN_rechercher(AVLNoeud *a, const char *id);
+void liberer_enfants(Enfant *e);
 void avlN_liberer(AVLNoeud *a);
 
 /* -------- Graphe aval -------- */
 Noeud* obtenir_ou_creer_noeud(AVLNoeud **index, const char *id);
 void ajouter_arete(Noeud *parent, Noeud *child, double fuite_pct);
 void liberer_graphe(AVLNoeud *index);
+
+/* -------- HISTO -------- */
+const char* entete_histo(ModeHisto mode);
+
+/* -------- LEAKS -------- */
+int fichier_vide_ou_absent(const char *path);
+void construire_chemin_leaks_bonus(const char *out_dat, char *out_bonus, int taille);
 
 #endif

@@ -110,7 +110,7 @@ int min0(int x) {
 
 AVLUsine* avlU_creer(UsineDonnees *u) {
     AVLUsine *n = malloc(sizeof(AVLUsine));
-    if (!n) return NULL;
+    if (!n) { return NULL; }
     n->u = u;
     n->fg = NULL;
     n->fd = NULL;
@@ -172,20 +172,47 @@ AVLUsine* equilibrer_U(AVLUsine *a) {
     return a;
 }
 
-AVLUsine* avlU_inserer(AVLUsine *a, UsineDonnees *u, int *h) {
+AVLUsine* avlU_inserer(AVLUsine *a, UsineDonnees *u, int *h, int *err) {
     int cmp;
 
+    if (!h) return a;
+
     if (!a) {
+        AVLUsine *nn = avlU_creer(u);
+        if (!nn) {
+            /* Échec d'allocation : on évite une fuite */
+            free(u);
+            *h = 0;
+            return NULL;
+        }
         *h = 1;
-        return avlU_creer(u);
+        return nn;
     }
 
     cmp = strcmp(u->id_usine, a->u->id_usine);
     if (cmp < 0) {
-        a->fg = avlU_inserer(a->fg, u, h);
+        AVLUsine *old = a->fg;
+        AVLUsine *res = avlU_inserer(old, u, h, err);
+
+        if (err && *err) {
+            a->fg = old;
+            *h = 0;
+            return a;
+        }
+
+        a->fg = res;
         *h = -(*h);
     } else if (cmp > 0) {
-        a->fd = avlU_inserer(a->fd, u, h);
+        AVLUsine *old = a->fd;
+        AVLUsine *res = avlU_inserer(old, u, h, err);
+
+        if (err && *err) {
+            a->fd = old;
+            *h = 0;
+            return a;
+        }
+
+        a->fd = res;
     } else {
         free(u);
         *h = 0;
@@ -204,6 +231,7 @@ AVLUsine* avlU_inserer(AVLUsine *a, UsineDonnees *u, int *h) {
     }
     return a;
 }
+
 
 AVLUsine* avlU_rechercher(AVLUsine *a, const char *id) {
     int cmp;
@@ -270,7 +298,7 @@ void avlU_ecrire_inverse(AVLUsine *a, FILE *f, ModeHisto mode) {
 
 AVLNoeud* avlN_creer(Noeud *n) {
     AVLNoeud *x = malloc(sizeof(AVLNoeud));
-    if (!x) return NULL;
+    if (!x) { return NULL; }
     x->n = n;
     x->fg = NULL;
     x->fd = NULL;
@@ -332,20 +360,48 @@ AVLNoeud* equilibrer_N(AVLNoeud *a) {
     return a;
 }
 
-AVLNoeud* avlN_inserer(AVLNoeud *a, Noeud *n, int *h) {
+AVLNoeud* avlN_inserer(AVLNoeud *a, Noeud *n, int *h, int *err) {
     int cmp;
 
+    if (!h) return a;
+
     if (!a) {
+        AVLNoeud *nn = avlN_creer(n);
+        if (!nn) {
+            free(n);
+            *h = 0;
+            if (err) *err = 1;
+            return NULL;
+        }
+        nn->n = n;
         *h = 1;
-        return avlN_creer(n);
+        return nn;
     }
 
     cmp = strcmp(n->id, a->n->id);
     if (cmp < 0) {
-        a->fg = avlN_inserer(a->fg, n, h);
+        AVLNoeud *old = a->fg;
+        AVLNoeud *res = avlN_inserer(old, n, h, err);
+
+        if (err && *err) {
+            a->fg = old;
+            *h = 0;
+            return a;
+        }
+
+        a->fg = res;
         *h = -(*h);
     } else if (cmp > 0) {
-        a->fd = avlN_inserer(a->fd, n, h);
+        AVLNoeud *old = a->fd;
+        AVLNoeud *res = avlN_inserer(old, n, h, err);
+
+        if (err && *err) {
+            a->fd = old;
+            *h = 0;
+            return a;
+        }
+
+        a->fd = res;
     } else {
         free(n);
         *h = 0;
@@ -364,6 +420,7 @@ AVLNoeud* avlN_inserer(AVLNoeud *a, Noeud *n, int *h) {
     }
     return a;
 }
+
 
 AVLNoeud* avlN_rechercher(AVLNoeud *a, const char *id) {
     int cmp;
@@ -409,11 +466,17 @@ Noeud* obtenir_ou_creer_noeud(AVLNoeud **index, const char *id) {
     strncpy(n->id, id, MAX_ID - 1);
     n->id[MAX_ID - 1] = '\0';
     n->enfants = NULL;
-    n->deg = 0;
+    n->deg = 0;    int err;
+    AVLNoeud *newroot;
 
+    err = 0;
     h = 0;
-    *index = avlN_inserer(*index, n, &h);
-
+    newroot = avlN_inserer(*index, n, &h, &err);
+    if (err) {
+        /* avlN_inserer a déjà libéré n en cas d'échec */
+        return NULL;
+    }
+    *index = newroot;
     found = avlN_rechercher(*index, id);
     if (found) return found->n;
     return NULL;
@@ -458,8 +521,8 @@ int traiter_histo(const char *chemin_fichier, ModeHisto mode, const char *out_da
     FILE *out;
     AVLUsine *arbre;
     int h;
-    char ligne[MAX_LIGNE];
-
+        int err;
+char ligne[MAX_LIGNE];
     in = fopen(chemin_fichier, "r");
     if (!in) {
         fprintf(stderr, "Erreur: impossible d'ouvrir %s\n", chemin_fichier);
@@ -469,6 +532,7 @@ int traiter_histo(const char *chemin_fichier, ModeHisto mode, const char *out_da
     arbre = NULL;
     h = 0;
 
+    err = 0;
     while (lire_ligne(in, ligne, MAX_LIGNE)) {
         char *col[5];
 
@@ -495,14 +559,28 @@ int traiter_histo(const char *chemin_fichier, ModeHisto mode, const char *out_da
             node = avlU_rechercher(arbre, id_usine);
             if (!node) {
                 UsineDonnees *u = malloc(sizeof(UsineDonnees));
-                if (!u) { fclose(in); avlU_liberer(arbre); return 11; }
+                if (!u) {
+                    fprintf(stderr, "Erreur: mémoire insuffisante (usine).\n");
+                    fclose(in);
+                    avlU_liberer(arbre);
+                    return 11;
+                }
 
                 memset(u, 0, sizeof(UsineDonnees));
                 strncpy(u->id_usine, id_usine, MAX_ID - 1);
                 u->id_usine[MAX_ID - 1] = '\0';
                 u->capacite_max_km3 = cap_km3;
 
-                arbre = avlU_inserer(arbre, u, &h);
+                err = 0;
+
+
+                arbre = avlU_inserer(arbre, u, &h, &err);
+                if (err) {
+                    fprintf(stderr, "Erreur: mémoire insuffisante (construction AVL usines).\n");
+                    fclose(in);
+                    avlU_liberer(arbre);
+                    return 14;
+                }
             } else {
                 node->u->capacite_max_km3 = cap_km3;
             }
@@ -534,15 +612,34 @@ int traiter_histo(const char *chemin_fichier, ModeHisto mode, const char *out_da
             node = avlU_rechercher(arbre, id_usine);
             if (!node) {
                 UsineDonnees *u = malloc(sizeof(UsineDonnees));
-                if (!u) { fclose(in); avlU_liberer(arbre); return 12; }
+                if (!u) {
+                    fprintf(stderr, "Erreur: mémoire insuffisante (source->usine).\n");
+                    fclose(in);
+                    avlU_liberer(arbre);
+                    return 12;
+                }
 
                 memset(u, 0, sizeof(UsineDonnees));
                 strncpy(u->id_usine, id_usine, MAX_ID - 1);
                 u->id_usine[MAX_ID - 1] = '\0';
 
-                arbre = avlU_inserer(arbre, u, &h);
+                err = 0;
+
+
+                arbre = avlU_inserer(arbre, u, &h, &err);
+                if (err) {
+                    fprintf(stderr, "Erreur: mémoire insuffisante (construction AVL usines).\n");
+                    fclose(in);
+                    avlU_liberer(arbre);
+                    return 14;
+                }
                 node = avlU_rechercher(arbre, id_usine);
-                if (!node) { fclose(in); avlU_liberer(arbre); return 13; }
+                if (!node) {
+                    fprintf(stderr, "Erreur interne: insertion AVL usine échouée.\n");
+                    fclose(in);
+                    avlU_liberer(arbre);
+                    return 13;
+                }
             }
 
             node->u->volume_src_km3 += vol;
@@ -640,7 +737,6 @@ int traiter_leaks(const char *chemin_fichier, const char *id_usine, const char *
 
     int usine_trouvee;
     double real_km3;
-
     /* -------- Phase 1 : existence usine + débit "real" (km3) -------- */
     in = fopen(chemin_fichier, "r");
     if (!in) {
@@ -728,12 +824,20 @@ int traiter_leaks(const char *chemin_fichier, const char *id_usine, const char *
         Noeud *racine;
 
         in = fopen(chemin_fichier, "r");
-        if (!in) return 33;
+        if (!in) {
+            fprintf(stderr, "Erreur: impossible d'ouvrir %s\n", chemin_fichier);
+            return 33;
+        }
 
         index = NULL;
 
         racine = obtenir_ou_creer_noeud(&index, id_usine);
-        if (!racine) { fclose(in); liberer_graphe(index); return 32; }
+        if (!racine) {
+            fprintf(stderr, "Erreur: mémoire insuffisante (création racine leaks).\n");
+            fclose(in);
+            liberer_graphe(index);
+            return 32;
+        }
 
         {
             char ligne[MAX_LIGNE];
@@ -779,6 +883,7 @@ int traiter_leaks(const char *chemin_fichier, const char *id_usine, const char *
                 p = obtenir_ou_creer_noeud(&index, amont);
                 c = obtenir_ou_creer_noeud(&index, aval);
                 if (!p || !c) {
+                    fprintf(stderr, "Erreur: mémoire insuffisante lors de la construction du graphe leaks.\n");
                     fclose(in);
                     liberer_graphe(index);
                     return 34;
@@ -820,7 +925,11 @@ int traiter_leaks(const char *chemin_fichier, const char *id_usine, const char *
             cap = 1024;
             top = 0;
             pile = malloc(cap * sizeof(ElementPile));
-            if (!pile) { liberer_graphe(index); return 35; }
+            if (!pile) {
+                fprintf(stderr, "Erreur: mémoire insuffisante (pile propagation leaks).\n");
+                liberer_graphe(index);
+                return 35;
+            }
 
             pile[top].n = racine;
             pile[top].debit = debit0;
@@ -880,6 +989,7 @@ int traiter_leaks(const char *chemin_fichier, const char *id_usine, const char *
                             cap *= 2;
                             tmp = realloc(pile, cap * sizeof(ElementPile));
                             if (!tmp) {
+                                fprintf(stderr, "Erreur: mémoire insuffisante (realloc pile leaks).\n");
                                 free(pile);
                                 liberer_graphe(index);
                                 return 36;

@@ -6,6 +6,12 @@ usage() {
   echo "  $0 <datafile> leaks \"<ID usine>\""
 }
 
+
+die() {
+  echo "Erreur: $*" >&2
+  exit 1
+}
+
 # Chrono (ms) 
 now_ms() {
   if date +%s%N >/dev/null 2>&1; then
@@ -33,18 +39,33 @@ CMD="$2"
 OPT="$3"
 
 if [ ! -f "$DATAFILE" ]; then
-  echo "Erreur: fichier introuvable : $DATAFILE"
-  exit 1
+  die "fichier introuvable : $DATAFILE"
 fi
+
+# Vérification commande
+case "$CMD" in
+  histo)
+    case "$OPT" in
+      max|src|real|all) ;;
+      *) die "option histo invalide: $OPT (attendu: max|src|real|all)" ;;
+    esac
+    ;;
+  leaks)
+    [ -n "$OPT" ] || die "ID usine vide"
+    ;;
+  *)
+    die "commande inconnue: $CMD"
+    ;;
+esac
 
 # Compilation si besoin
 if [ ! -x "./projet" ]; then
-  make || exit 1
+  make || die "compilation échouée (make)"
 fi
 
 OUTDIR="output"
 TMPDIR="tmp"
-mkdir -p "$OUTDIR" "$TMPDIR"
+mkdir -p "$OUTDIR" "$TMPDIR" || die "impossible de créer les dossiers $OUTDIR/ ou $TMPDIR/"
 
 ./projet "$DATAFILE" "$CMD" "$OPT"
 RET=$?
@@ -122,6 +143,9 @@ plot '${TMPDIR}/top10.dat' using 2:xtic(1) title 'real' lc rgb 'blue', \
      '' using 3 title 'src-real' lc rgb 'red', \
      '' using 4 title 'max-src' lc rgb 'green'
 EOF
+  if [ $? -ne 0 ]; then
+    die "gnuplot a échoué lors de la génération de l'image"
+  fi
 
     gnuplot <<EOF
 set terminal pngcairo size 1500,850 enhanced font 'Verdana,9'
@@ -134,10 +158,13 @@ set style fill solid 1.0 border -1
 set boxwidth 0.85
 set ylabel "Volume (M.m3.year-1)"
 set xtics rotate by -90
-plot '${TMPDIR}/bot50.dat' using 2:xtic(1) title 'real (bleu)' lc rgb 'blue', \
-     '' using 3 title 'src-real (rouge)' lc rgb 'red', \
-     '' using 4 title 'max-src (vert)' lc rgb 'green'
+plot '${TMPDIR}/bot50.dat' using 2:xtic(1) title 'real' lc rgb 'blue', \
+     '' using 3 title 'src-real' lc rgb 'red', \
+     '' using 4 title 'max-src' lc rgb 'green'
 EOF
+  if [ $? -ne 0 ]; then
+    die "gnuplot a échoué lors de la génération de l'image"
+  fi
   else
     gnuplot <<EOF
 set terminal pngcairo size 1400,800 enhanced font 'Verdana,10'
@@ -151,6 +178,9 @@ set ylabel "Volume (M.m3.year-1)"
 set xtics rotate by -90
 plot '${TMPDIR}/top10.dat' using 2:xtic(1) title '${OPT}'
 EOF
+  if [ $? -ne 0 ]; then
+    die "gnuplot a échoué lors de la génération de l'image"
+  fi
 
     gnuplot <<EOF
 set terminal pngcairo size 1400,800 enhanced font 'Verdana,9'
@@ -164,6 +194,9 @@ set ylabel "Volume (M.m3.year-1)"
 set xtics rotate by -90
 plot '${TMPDIR}/bot50.dat' using 2:xtic(1) title '${OPT}'
 EOF
+  if [ $? -ne 0 ]; then
+    die "gnuplot a échoué lors de la génération de l'image"
+  fi
   fi
 
   echo "OK: ${DAT} -> ${HIGH} / ${LOW}"
