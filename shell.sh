@@ -67,7 +67,7 @@ if [ "$CMD" = "histo" ]; then
     exit 1
   fi
 
-  # Sélection top/bot selon MAX (même si OPT=src/real/all)
+  # Sélection top/bot 
   REF="$OUTDIR/histo_max.dat"
   if [ ! -f "$REF" ]; then
     ./projet "$DATAFILE" histo max || exit 1

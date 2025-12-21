@@ -2,7 +2,7 @@
 
 /* -------- Utilitaires -------- */
 
-/* Supprime \n / \r en fin de ligne (utile après fgets). */
+/* Supprime \n / \r en fin de ligne. */
 void nettoyer_fin_ligne(char *s) {
     int n;
 
@@ -424,10 +424,10 @@ void liberer_graphe(AVLNoeud *index) {
 /* -------- HISTO -------- */
 
 const char* entete_histo(ModeHisto mode) {
-    if (mode == HISTO_MAX)  return "identifier;max volume (M.m3.year-1)\n";
-    if (mode == HISTO_SRC)  return "identifier;source volume (M.m3.year-1)\n";
-    if (mode == HISTO_REAL) return "identifier;real volume (M.m3.year-1)\n";
-    return "identifier;max;src;real (M.m3.year-1)\n"; /* HISTO_ALL */
+    if (mode == HISTO_MAX)  return "identifier;max volume (M.m3)\n";
+    if (mode == HISTO_SRC)  return "identifier;source volume (M.m3)\n";
+    if (mode == HISTO_REAL) return "identifier;real volume (M.m3)\n";
+    return "identifier;max;src;real (M.m3)\n"; /* HISTO_ALL */
 }
 
 /* Traite le mode histo :
@@ -643,7 +643,7 @@ int traiter_leaks(const char *chemin_fichier, const char *id_usine, const char *
             fprintf(stderr, "Erreur: impossible d'ouvrir %s en écriture\n", out_dat);
             return 31;
         }
-        if (need_header) fputs("identifier;Leak volume (M.m3.year-1)\n", out);
+        if (need_header) fputs("identifier;Leak volume (M.m3)\n", out);
         fprintf(out, "%s;-1.000000\n", id_usine);
         fclose(out);
         return 0;
@@ -802,7 +802,7 @@ int traiter_leaks(const char *chemin_fichier, const char *id_usine, const char *
                 fprintf(stderr, "Erreur: impossible d'ouvrir %s en écriture\n", out_dat);
                 return 40;
             }
-            if (need_header) fputs("identifier;Leak volume (M.m3.year-1)\n", out);
+            if (need_header) fputs("identifier;Leak volume (M.m3)\n", out);
             fprintf(out, "%s;%.6f\n", id_usine, pertes_Mm3);
             fclose(out);
         }
