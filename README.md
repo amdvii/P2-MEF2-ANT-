@@ -72,7 +72,7 @@ Le script `shell.sh` constitue le point d’entrée principal du projet.
 Permet d’obtenir les informations de fuite associées à une usine précise.
 
 ```bash
-./shell.sh c-wildwater_v3.dat leaks "<ID usine>"
+./shell.sh c-wildwater_v3.dat leaks "<ID de l'usine précis>"
 ```
 Exemple d’utilisation :
 ```bash 
